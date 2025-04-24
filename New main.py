@@ -1,6 +1,6 @@
 ﻿from flask import Flask
 import telegram
-from telegram.ext import Updater, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import os
 from threading import Thread
 
@@ -31,6 +31,11 @@ def start_bot():
     dp.add_handler(MessageHandler(Filters.text & Filters.chat(chat_id=SOURCE_CHAT_ID), forward_homework))
     updater.start_polling()
     updater.idle()
+
+# Define a simple start command
+def start(update, context):
+    update.message.reply_text("Hello! I'm Homework Bot!")
+    updater.dispatcher.add_handler(CommandHandler('start', start))
 
 # Healthcheck Flask app
 app = Flask(__name__)
