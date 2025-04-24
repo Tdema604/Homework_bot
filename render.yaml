@@ -2,5 +2,6 @@ services:
   - type: web
     name: homework-bot
     env: python
+    plan: free
     buildCommand: ""
     startCommand: gunicorn main:app
