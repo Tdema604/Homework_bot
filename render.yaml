@@ -7,6 +7,6 @@ services:
     startCommand: gunicorn main:app
     envVars:
       - key: TOKEN
-        value: "your_telegram_bot_token"
+        value: "7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac"
     branches:
       - main
