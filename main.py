@@ -3,11 +3,10 @@ import telegram
 import os
 
 app = Flask(__name__)
-
-TOKEN = os.environ.get("BOT_TOKEN")
+TOKEN = os.environ['BOT_TOKEN']
 bot = telegram.Bot(token=TOKEN)
 
-SOURCE_CHAT_ID = -1002570406243  # Homework group
+SOURCE_CHAT_ID = -1002570406243  # Student group
 TARGET_CHAT_ID = -1002287165008  # Parents group
 
 @app.route(f'/{TOKEN}', methods=['POST'])
@@ -20,7 +19,9 @@ def webhook():
 
         if update.message.text == "/start":
             bot.send_message(chat_id=chat_id, text="✅ Bot is active!")
-        elif chat_id == SOURCE_CHAT_ID:
+            return 'ok'
+
+        if chat_id == SOURCE_CHAT_ID:
             bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=chat_id, message_id=message_id)
 
     return 'ok'
@@ -30,4 +31,4 @@ def index():
     return 'Bot is alive!'
 
 if __name__ == '__main__':
-    app.run()
+    app.run(host='0.0.0.0', port=10000)
