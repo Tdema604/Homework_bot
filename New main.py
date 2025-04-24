@@ -26,7 +26,7 @@ app = Flask(__name__)
 
 # Start the Telegram bot in a thread
 def start_bot():
-   updater = Updater(TOKEN, use_context=True)
+   updater = Updater(7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac, use_context=True)
     dp = updater.dispatcher
     dp.add_handler(MessageHandler(Filters.text & Filters.chat(chat_id=SOURCE_CHAT_ID), forward_homework))
     updater.start_polling()
