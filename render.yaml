@@ -1,12 +1,10 @@
 services:
   - type: web
-    name: flask-telegram-bot
+    name: telegram-homework-bot
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn main:app
     envVars:
       - key: TOKEN
-        value: "7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac"
-    branches:
-      - main
+        value: 7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac
