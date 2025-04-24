@@ -41,4 +41,3 @@ def index():
 if __name__ == '__main__':
     # Render uses port from environment, so ensure it's handled properly
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-                                                    
