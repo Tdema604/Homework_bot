@@ -3,7 +3,7 @@ import telegram
 import os
 
 app = Flask(__name__)
-TOKEN = os.environ['7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac']
+TOKEN = os.environ['BOT_TOKEN']
 bot = telegram.Bot(token=TOKEN)
 
 SOURCE_CHAT_ID = -1002570406243  # Homework group
