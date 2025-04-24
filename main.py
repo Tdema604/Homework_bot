@@ -3,11 +3,11 @@ import telegram
 import os
 
 app = Flask(__name__)
-TOKEN = os.environ["7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac"]
+TOKEN = os.environ['BOT_TOKEN']
 bot = telegram.Bot(token=TOKEN)
 
 # Replace with your actual group/chat IDs
-SOURCE_CHAT_ID = -4703962156  # Student group
+SOURCE_CHAT_ID = -4703962156  # Homework group
 TARGET_CHAT_ID = -1002287165008  # Parents group
 
 @app.route(f'/{TOKEN}', methods=['POST'])
@@ -21,15 +21,14 @@ def webhook():
 
         # ✅ Respond to /start from any chat
         if message_text == "/start":
-            bot.send_message(chat_id=chat_id, text="✅ Bot is active! Send a message in the student group to test forwarding.")
+            bot.send_message(chat_id=chat_id, text="✅ Bot is active! Send a message in the homework group to test forwarding.")
             return 'ok'
 
-        # ✅ Forward only from the student group
+        # ✅ Forward only from the homework group
         if chat_id == SOURCE_CHAT_ID:
             bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=chat_id, message_id=message_id)
-    return 'ok'
 
-import requests
+    return 'ok'
 
 @app.route('/')
 def index():
