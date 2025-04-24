@@ -13,6 +13,14 @@ TARGET_CHAT_ID = -1002287165008  # Parents group
 @app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
     update = telegram.Update.de_json(request.get_json(force=True), bot)
+    
+# Function to forward homework messages
+def forward_homework(update, context):
+    message_text = update.message.text.lower()
+    if any(keyword in message_text for keyword in ["homework", "worksheet", "assignment"]):
+        context.bot.forward_message(chat_id=TARGET_CHAT_ID,
+                                    from_chat_id=update.message.chat_id,
+                                    message_id=update.message.message_id)
 
     if update.message:
         chat_id = update.message.chat.id
