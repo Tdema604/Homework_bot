@@ -27,8 +27,16 @@ def webhook():
         # ✅ Forward only from the student group
         if chat_id == SOURCE_CHAT_ID:
             bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=chat_id, message_id=message_id)
-
     return 'ok'
+
+import requests
+
+BOT_TOKEN = '7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac'
+WEBHOOK_URL = 'https://homework-tbsp.onrender.com/webhook'
+
+response = requests.get(f'https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={WEBHOOK_URL}')
+print(response.json())
+
 
 @app.route('/')
 def index():
