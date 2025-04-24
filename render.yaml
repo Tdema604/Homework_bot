@@ -1,10 +1,9 @@
 services:
   - type: web
-    name: homework-forwarder
+    name: homework-bot
     env: python
-    plan: free
     buildCommand: ""
     startCommand: python main.py
     envVars:
       - key: BOT_TOKEN
-        value: 7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac  # Replace if needed
+        value:7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac
