@@ -5,12 +5,13 @@ import os
 from threading import Thread
 
 # Replace these with your actual bot token and group IDs
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = 7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac
 SOURCE_CHAT_ID = -4703962156 # Student group
 TARGET_CHAT_ID = -1002287165008 # Parent group
 
 # Initialize bot
-bot = telegram.Bot(token=BOT_TOKEN)
+TOKEN = os.getenv("TOKEN")
+bot = telegram.Bot(token=TOKEN)
 
 # Function to forward homework messages
 def forward_homework(update, context):
@@ -19,6 +20,9 @@ def forward_homework(update, context):
         context.bot.forward_message(chat_id=TARGET_CHAT_ID,
                                     from_chat_id=update.message.chat_id,
                                     message_id=update.message.message_id)
+        
+ # For webhook response (Render keeps service awake)
+app = Flask(__name__)
 
 # Start the Telegram bot in a thread
 def start_bot():
@@ -32,8 +36,8 @@ def start_bot():
 app = Flask(__name__)
 
 @app.route('/')
-def home():
-    return "I'm alive!"
+def index():
+    return 'I am alive!', 200
 
 if __name__ == '__main__':
     Thread(target=start_bot).start()
