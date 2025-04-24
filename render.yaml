@@ -2,8 +2,5 @@ services:
   - type: web
     name: homework-bot
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
-    envVars:
-      - key: TOKEN
-        value: 7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac
+    buildCommand: ""
+    startCommand: gunicorn main:app
