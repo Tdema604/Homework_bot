@@ -3,11 +3,11 @@ import telegram
 import os
 
 app = Flask(__name__)
-TOKEN = os.environ['BOT_TOKEN']
+TOKEN = os.environ['7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac']
 bot = telegram.Bot(token=TOKEN)
 
 # Replace with your actual group/chat IDs
-SOURCE_CHAT_ID = -1002552207733  # Homework group
+SOURCE_CHAT_ID = -4703962156  # Homework group
 TARGET_CHAT_ID = -1002287165008  # Parents group
 
 @app.route(f'/{TOKEN}', methods=['POST'])
