@@ -21,7 +21,7 @@ def webhook():
 
         # ✅ Respond to /start from any chat
         if message_text == "/start":
-            bot.send_message(chat_id=chat_id, text="✅ Bot is active! Send a message in the homework group to test forwarding.")
+            bot.send_message(chat_id=chat_id, text="✅ Bot is active! Send a message in the student group to test forwarding.")
             return 'ok'
 
         # ✅ Forward only from the homework group
