@@ -10,7 +10,7 @@ SOURCE_CHAT_ID = -4703962156 # Student group
 TARGET_CHAT_ID = -1002287165008 # Parent group
 
 # Initialize bot
-TOKEN = os.getenv("TOKEN")
+TOKEN = os.environ.get(7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac)
 bot = telegram.Bot(token=TOKEN)
 
 # Function to forward homework messages
@@ -26,7 +26,7 @@ app = Flask(__name__)
 
 # Start the Telegram bot in a thread
 def start_bot():
-    updater = Updater(BOT_TOKEN, use_context=True)
+   updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
     dp.add_handler(MessageHandler(Filters.text & Filters.chat(chat_id=SOURCE_CHAT_ID), forward_homework))
     updater.start_polling()
