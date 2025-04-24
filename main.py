@@ -31,13 +31,6 @@ def webhook():
 
 import requests
 
-BOT_TOKEN = '7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac'
-WEBHOOK_URL = 'https://homework-tbsp.onrender.com/webhook'
-
-response = requests.get(f'https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={WEBHOOK_URL}')
-print(response.json())
-
-
 @app.route('/')
 def index():
     return 'Bot is alive!'
