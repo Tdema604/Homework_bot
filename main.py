@@ -7,7 +7,7 @@ TOKEN = os.environ['BOT_TOKEN']
 bot = telegram.Bot(token=TOKEN)
 
 # Replace with your actual group/chat IDs
-SOURCE_CHAT_ID = -4703962156  # Homework group
+SOURCE_CHAT_ID = -1002570406243  # Homework group
 TARGET_CHAT_ID = -1002287165008  # Parents group
 
 @app.route(f'/{TOKEN}', methods=['POST'])
