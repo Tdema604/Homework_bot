@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-TOKEN = os.environ['BOT_TOKEN']  # Set this in Render's Environment
+TOKEN = os.environ.get("BOT_TOKEN")
 bot = telegram.Bot(token=TOKEN)
 
 SOURCE_CHAT_ID = -1002570406243  # Homework group
