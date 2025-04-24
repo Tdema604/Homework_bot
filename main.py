@@ -3,7 +3,7 @@ import telegram
 import os
 
 app = Flask(__name__)
-TOKEN = os.environ['7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac']
+TOKEN = os.environ["7780579160:AAE-DWc3B6GkgMgvueHomHOF65AmciT10ac"]
 bot = telegram.Bot(token=TOKEN)
 
 # Replace with your actual group/chat IDs
