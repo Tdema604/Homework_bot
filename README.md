@@ -5,7 +5,7 @@
    cd Homework_bot
    
 2. **Install dependencies:**
-- 'pip install -r requirements.txt'
+- `pip install -r requirements.txt`
 
 3. **Configure environment variables:**
 
@@ -17,17 +17,17 @@
 
 
 4. **Deploy to Render**
-- 'Use the render.yaml file for deployment configuration'
-- 'Set environment variables in the Render dashboard'
+- `Use the render.yaml file for deployment configuration`
+- `Set environment variables in the Render dashboard`
 
 5. **Set up Uptime Robot:**
-  - Monitor your bot's endpoint to ensure continuous operation.
+  - `Monitor your bot's endpoint to ensure continuous operation`.
 
 **📄 Files Overview**
-- 'main.py – Core bot functionality'
-- 'render.yaml – Deployment configuration'
-- 'requirements.txt – Python dependencies'
+- `main.py – Core bot functionality`
+- `render.yaml – Deployment configuration`
+- `requirements.txt – Python dependencies`
 
 **📬 Contact**
-- 'Created by Tenzin'
-- '📧 Email: tenzidem97@gmail.com'
+- `Created by Tenzin
+- 📧 Email: tenzidem97@gmail.com`
