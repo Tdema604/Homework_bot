@@ -1,6 +1,6 @@
 # 📚 Telegram Homework Forwarding Bot
 
-This Python Telegram bot forwards homework from a student group to a parent group, saving teachers from posting twice. It keeps parents updated on their child's homework while reducing unnecessary screen time and content browsing for kids while waiting for homework updates..
+This Python-based Telegram bot is designed to seamlessly forward homework-related messages from a student group to a parent group—particularly useful when separate groups are maintained. It streamlines communication by reducing the need for teachers to post updates twice, while ensuring parents remain informed and engaged in their child's academic progress. Additionally, it helps minimize unnecessary screen time and content exposure for child awaiting homework updates.
 
 ## 🚀 Features
 
