@@ -17,8 +17,7 @@ A Python-based Telegram bot that automatically forwards homework messages from a
    
 2. **Install dependencies:**
 ```bash
-   git clone 
-- `pip install -r requirements.txt`
+   - `pip install -r requirements.txt`
 
 3. **Configure environment variables:**
 
