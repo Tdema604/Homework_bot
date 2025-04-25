@@ -1,3 +1,14 @@
+# 📚 Telegram Homework Forwarding Bot
+
+A Python-based Telegram bot that automatically forwards homework messages from a student group to a parent group.
+
+## 🚀 Features
+
+- Real-time message forwarding
+- 24/7 uptime using Render and Uptime Robot
+- Easy deployment with `render.yaml`
+- Dependency management via `requirements.txt`
+ 
 ## 🛠️ Setup Instructions
 1. **Clone the repository:**
    ```bash
@@ -5,6 +16,8 @@
    cd Homework_bot
    
 2. **Install dependencies:**
+```bash
+   git clone 
 - `pip install -r requirements.txt`
 
 3. **Configure environment variables:**
