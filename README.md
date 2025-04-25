@@ -16,8 +16,8 @@ A Python-based Telegram bot that automatically forwards homework messages from a
    cd Homework_bot
    
 2. **Install dependencies:**
-\`\`\`bash
-pip install -r requirements.txt \`\`\`
+**“- pip install -r requirements.txt”** 
+ 
 
 4. **Configure environment variables:**
    - `API_ID`  
