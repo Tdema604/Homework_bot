@@ -20,11 +20,11 @@ This Python Telegram bot forwards homework from a student group to a parent grou
  
 
 3. **Configure environment variables:**
-   - `API_ID`  
-   - `API_HASH`  
-   - `BOT_TOKEN`  
-   - `SOURCE_CHAT_ID`  
+
+   - `BOT_TOKEN`
+   - `SOURCE_CHAT_ID`
    - `DESTINATION_CHAT_ID`
+
 
 4. **Deploy to Render**
 - Use the `render.yaml` file for deployment configuration
