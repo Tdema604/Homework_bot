@@ -19,14 +19,14 @@ A Python-based Telegram bot that automatically forwards homework messages from a
 - pip install -r requirements.txt
  
 
-4. **Configure environment variables:**
+3. **Configure environment variables:**
    - `API_ID`  
    - `API_HASH`  
    - `BOT_TOKEN`  
    - `SOURCE_CHAT_ID`  
    - `DESTINATION_CHAT_ID`
 
-5. **Deploy to Render**
+4. **Deploy to Render**
 - Use the `render.yaml` file for deployment configuration
 - Set environment variables in the Render dashboard
 
@@ -40,4 +40,4 @@ A Python-based Telegram bot that automatically forwards homework messages from a
 
 **📬 Contact**
 - Created by Tenzin
-- 📧 Email: tenzidem97@gmail.com
+- 📧 Email: `tenzidem97@gmail.com`
