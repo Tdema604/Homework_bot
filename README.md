@@ -3,8 +3,9 @@
    ```bash
    git clone https://github.com/Tdema604/Homework_bot.git
    cd Homework_bot
+   
 **2.Install dependencies:**
-pip install -r requirements.txt
+- 'pip install -r requirements.txt'
 
 **3.Configure environment variables:**
 - 'API_ID'
@@ -19,8 +20,6 @@ pip install -r requirements.txt
 
 **5.Set up Uptime Robot:**
     Monitor your bot's endpoint to ensure continuous operation.
----
-### 🪜 Now do this:
 
 **📄 Files Overview**
 - 'main.py – Core bot functionality'
