@@ -17,7 +17,8 @@ A Python-based Telegram bot that automatically forwards homework messages from a
    git clone https://github.com/Tdema604/Homework_bot.git
    cd Homework_bot
    
-**2.Install dependencies:**
+```markdown
+**2. Install dependencies:**
 pip install -r requirements.txt
 
 3. **Configure environment variables:**
