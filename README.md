@@ -8,7 +8,7 @@
 - 'pip install -r requirements.txt'
 
 **3.Configure environment variables:**
-- 'API_ID'
+- "API_ID"
 - 'API_HASH'
 - 'BOT_TOKEN'
 - 'SOURCE_CHAT_ID'
