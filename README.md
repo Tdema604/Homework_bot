@@ -33,9 +33,9 @@ A Python-based Telegram bot that automatically forwards homework messages from a
   - `Monitor your bot's endpoint to ensure continuous operation`.
 
 **📄 Files Overview**
-- `main.py – Core bot functionality`
-- `render.yaml – Deployment configuration`
-- `requirements.txt – Python dependencies`
+- `main.py` – Core bot functionality
+- `render.yaml` – Deployment configuration
+- `requirements.txt` – Python dependencies
 
 **📬 Contact**
 - `Created by Tenzin
