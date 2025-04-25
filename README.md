@@ -20,7 +20,7 @@ A Python-based Telegram bot that automatically forwards homework messages from a
    - `pip install -r requirements.txt`
 
 3. **Configure environment variables:**
-
+```bash
    - `API_ID`  
    - `API_HASH`  
    - `BOT_TOKEN`  
