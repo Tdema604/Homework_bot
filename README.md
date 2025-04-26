@@ -53,7 +53,7 @@ never push it to GitHub.)`
 
 ---
 
-```markdown
+```
 
 ## 📂 Project Structure
 
