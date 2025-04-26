@@ -101,11 +101,11 @@ python main.py
 
 -**Set the build and start commands.**
 
--*"Configure environment variables in
- Render dashboard.
+-**Configure environment variables in
+ Render dashboard.**
 
 -**Monitor status using Render and
- UptimeRobot.
+ UptimeRobot.**
 
 ---
 
