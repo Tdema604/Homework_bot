@@ -43,6 +43,8 @@ telegram-bot/
 
 ## ⚙️ Installation Guide
 
+```plaintext
+
 1.Clone this Repository
 
 git clone https://github.com/yourusername/telegram-bot.git
@@ -73,10 +75,13 @@ pip install -r requirements.txt
 
 5.Run the Bot: python main.py
 
+```
 
 ---
 
 ## ☁️ Deployment Guide (Render.com)
+
+```plaintext
 
 - Connect GitHub repository to Render.
 
@@ -88,6 +93,7 @@ pip install -r requirements.txt
 
 - Deploy and monitor bot 24/7!
 
+```
 
 ---
 
@@ -100,6 +106,8 @@ pip install -r requirements.txt
 
 ## ✨ Future Enhancements
 
+```plaintext
+
 - Add command-based interactions for teachers (e.g., /announce Homework...)
 
 - AI spam detection for better filtering
@@ -108,14 +116,18 @@ pip install -r requirements.txt
 
 - Secret management using HashiCorp Vault (Corporate Level)
 
+```
 
 ---
 
 ## 🤝 Contributing
 
+```plaintext
+
 Pull requests are welcome!
 For major changes, please open an issue first to discuss what you would like to change.
 
+```
 
 ---
 
@@ -128,6 +140,8 @@ This project is open-sourced under the MIT License.
 
 # 👩‍💻 Author
 
+```plaintext
+
 - Tenzin — Assistant Manager (Accounts) 
 - aspiring Tech Innovator.
 
@@ -137,5 +151,6 @@ This project is open-sourced under the MIT License.
 - GitHub: Tdema604
 - Email: tenzidem97@gmail.com
 
+```
 
 ---
