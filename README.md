@@ -130,7 +130,9 @@ This project is open-sourced under the MIT License.
 - aspiring Tech Innovator.
 
 
-Connect with me on LinkedIn | Telegram
+# Connect with me on:
+- Telegram: བསྟེན་འཛིན། [Meto Mother]
+- GitHub: 
 
 
 ---
