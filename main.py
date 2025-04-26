@@ -3,17 +3,16 @@ import telegram
 import os
 
 app = Flask(__name__)
-TOKEN = os.environ['TOKEN']
-ADMIN_CHAT_ID = int(os.environ.get('ADMIN_CHAT_ID'))
+TOKEN = os.environ.get('TOKEN')
+ADMIN_CHAT_ID = int(os.environ.get('ADMIN_CHAT_ID', '0'))
+
 bot = telegram.Bot(token=TOKEN)
 
-SOURCE_CHAT_ID = -1002570406243  # Students Group
-TARGET_CHAT_ID = -1002287165008  # Parents Group
+# Hardcoded for now
+SOURCE_CHAT_ID = -1002570406243
+TARGET_CHAT_ID = -1002287165008
 
-# Homework-related keywords
 HOMEWORK_KEYWORDS = ['homework', 'assignment', '#home', '#hw', 'task']
-
-# Spam patterns to detect common scams
 SPAM_KEYWORDS = [
     'jetonvpnbot', 'vpn', 'absolutely free', '🔥', '❤️', '📺', '📸',
     'https://', 'http://', 't.me/', '@jetonvpnbot', 'начать пробный период',
@@ -32,28 +31,30 @@ def webhook():
         caption = update.message.caption.lower() if update.message.caption else ""
         is_forwarded = update.message.forward_date is not None
 
-        # Block known spam bots (basic check)
         if update.message.from_user.is_bot:
-            bot.ban_chat_member(chat_id=chat_id, user_id=user_id)
-            bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Banned a bot user from group {chat_id}")
+            try:
+                bot.ban_chat_member(chat_id=chat_id, user_id=user_id)
+                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Banned a bot user from group {chat_id}")
+            except Exception as e:
+                print(f"Ban error: {e}")
             return 'ok'
 
-        # Detect spam messages
         spam_detected = any(keyword in text for keyword in SPAM_KEYWORDS) or \
                         any(keyword in caption for keyword in SPAM_KEYWORDS) or \
                         is_forwarded
 
         if spam_detected:
-            bot.delete_message(chat_id=chat_id, message_id=message_id)
-            bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Deleted spam message from {chat_id}")
+            try:
+                bot.delete_message(chat_id=chat_id, message_id=message_id)
+                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Deleted spam in group {chat_id}")
+            except Exception as e:
+                print(f"Delete error: {e}")
             return 'ok'
 
-        # /start confirmation
         if update.message.text == "/start":
             bot.send_message(chat_id=chat_id, text="✅ Bot is active!")
             return 'ok'
 
-        # Forward homework-related messages
         if chat_id == SOURCE_CHAT_ID:
             if any(keyword in text for keyword in HOMEWORK_KEYWORDS) or \
                any(keyword in caption for keyword in HOMEWORK_KEYWORDS):
