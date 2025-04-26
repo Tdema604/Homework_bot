@@ -11,8 +11,7 @@ TARGET_CHAT_ID = -1002287165008  # Parents group
 
 # Keywords to identify homework-related messages
 HOMEWORK_KEYWORDS = ['homework', 'assignment', '#home', '#hw', 'task']
-
-# Keywords that likely indicate spam (Russian VPN ads, etc.)
+# Keywords to detect spam
 SPAM_KEYWORDS = ['vpn', '@jetonvpnbot', 'бесплатно', 'instagram', 'youtube', 'ios', 'mac']
 
 @app.route(f'/{TOKEN}', methods=['POST'])
@@ -30,15 +29,20 @@ def webhook():
             bot.send_message(chat_id=chat_id, text="✅ Bot is active!")
             return 'ok'
 
-        # Filter: only forward if it matches homework keywords and NOT spam
         if chat_id == SOURCE_CHAT_ID:
-            if (any(keyword in text for keyword in HOMEWORK_KEYWORDS) or
-                any(keyword in caption for keyword in HOMEWORK_KEYWORDS)):
-                
-                if not (any(spam_word in text for spam_word in SPAM_KEYWORDS) or
-                        any(spam_word in caption for spam_word in SPAM_KEYWORDS)):
-                    
-                    bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=chat_id, message_id=message_id)
+            # First check if spam — if yes, delete the message
+            if any(spam_word in text for spam_word in SPAM_KEYWORDS) or \
+               any(spam_word in caption for spam_word in SPAM_KEYWORDS):
+                try:
+                    bot.delete_message(chat_id=chat_id, message_id=message_id)
+                except Exception as e:
+                    print(f"Failed to delete spam: {e}")
+                return 'ok'
+
+            # Then if homework-related and clean, forward to parents group
+            if any(keyword in text for keyword in HOMEWORK_KEYWORDS) or \
+               any(keyword in caption for keyword in HOMEWORK_KEYWORDS):
+                bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=chat_id, message_id=message_id)
 
     return 'ok'
 
