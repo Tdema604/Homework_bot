@@ -46,13 +46,10 @@ telegram-bot/
 ```plaintext
 
 1.Clone this Repository
-
 git clone https://github.com/yourusername/telegram-bot.git
 cd telegram-bot
 
-
 2.Set Up Virtual Environment
-
 - python -m venv venv
 venv\Scripts\activate # Windows
 OR
@@ -60,23 +57,19 @@ source venv/bin/activate # Linux/Mac
 
 
 3.Install Dependencies:
-
 pip install -r requirements.txt
 
 
 4.Create .env File
 (or set Environment Variables manually):
-
 - TOKEN=your-telegram-bot-token
 - SOURCE_GROUP_ID=your-student-group-id
 - TARGET_CHAT_ID=your-parent-group-id
 - ADMIN_CHAT_ID=your-admin-user-id
 
-
 5.Run the Bot: python main.py
 
 ```
-
 ---
 
 ## ☁️ Deployment Guide (Render.com)
