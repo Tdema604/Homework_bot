@@ -78,7 +78,7 @@ git clone
 cd telegram-bot
 
 
-** 2. Create virtual environment:**
+2. Create virtual environment:
 
 python -m venv venv
 
