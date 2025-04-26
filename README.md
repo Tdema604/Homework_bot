@@ -49,7 +49,7 @@ ADMIN_CHAT_ID=your-admin-user-id
 (Keep this file secret — never push it to GitHub.)
 
 
-📂 Project Structure
+## 📂 Project Structure
 
 telegram-bot/
 │
@@ -63,28 +63,25 @@ telegram-bot/
 
 ## 🚀 Local Setup Guide
 
-1. Clone the repository:
-
+1. Clone the repository
 git clone https://github.com/your-username/telegram-bot.git
 cd telegram-bot
 
 
-2. Create virtual environment:
-
+2. Create virtual environment
 python -m venv venv
 venv\Scripts\activate    # (Windows)
 
 
-3. Install dependencies:
-
+3. Install dependencies
 pip install -r requirements.txt
 
 
-4. Run the bot locally:
-
+4. Run the bot locally
 python main.py
 
-🌎 Deployment (Render.com)
+
+## 🌎 Deployment (Render.com)
 
 - Connect GitHub to Render.com.
 
@@ -98,7 +95,7 @@ python main.py
 
 
 
-👑 Author
+## 👑 Author
 
 > Tenzin
 Assistant Manager (Accounts) 
