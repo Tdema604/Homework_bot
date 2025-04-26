@@ -47,10 +47,10 @@ def webhook():
         # Detect and delete spam
         if is_forwarded or any(word in text for word in SPAM_KEYWORDS) or any(word in caption for word in SPAM_KEYWORDS):
             try:
-                bot.delete_message(chat_id=chat_id, message_id=message_id)
-                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"🗑️ Spam removed in group {chat_id}")
-            except Exception as e:
-                print(f"[Delete Error] {e}")
+    bot.delete_message(chat_id=chat_id, message_id=message_id)
+    bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Deleted spam in group {chat_id}")
+except telegram.error.TelegramError as e:
+    bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"❌ Failed to delete message in {chat_id}: {e}")
             return 'ok'
 
         # Start command
