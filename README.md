@@ -1,47 +1,115 @@
-# 📚 Telegram Homework Forwarding Bot
+# Telegram Homework Forwarder Bot
 
-This Python-based Telegram bot is designed to seamlessly forward homework-related messages from a student group to a parent group—particularly useful when separate groups are maintained. It streamlines communication by reducing the need for teachers to post updates twice, while ensuring parents remain informed and engaged in their child's academic progress. Additionally, it helps minimize unnecessary screen time and content exposure for child awaiting homework updates.
+A professional, automated Telegram bot system that forwards homework messages from a **Student Group** to a **Parent Group** based on specific keywords, ensuring streamlined communication between teachers and parents.  
+Spam and non-homework messages are automatically filtered and deleted to maintain a clean environment.
+
+---
 
 ## 🚀 Features
 
-- Real-time message forwarding
-- 24/7 uptime using Render and Uptime Robot
-- Easy deployment with `render.yaml`
-- Dependency management via `requirements.txt`
- 
-## 🛠️ Setup Instructions
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Tdema604/Homework_bot.git
-   cd Homework_bot
-   
-2. **Install dependencies:**
-- pip install -r requirements.txt
- 
+- **Keyword-Based Forwarding:**  
+  Forwards only homework-related messages (e.g., containing "homework", "assignment", "worksheet").
 
-3. **Configure environment variables:**
+- **Spam Filtering:**  
+  Deletes irrelevant messages automatically from the Student Group.
 
-   - `BOT_TOKEN`
-   - `SOURCE_CHAT_ID`
-   - `DESTINATION_CHAT_ID`
+- **Admin Notification:**  
+  Notifies the admin when inappropriate content is deleted.
+
+- **Environment-Based Secrets:**  
+  Uses a `.env` file to manage sensitive credentials securely.
+
+- **Auto-Deployment:**  
+  Powered by **GitHub**, **Render.com**, and **UptimeRobot** for 24/7 uptime without manual restarts.
+
+---
+
+## 🛠️ Tech Stack
+
+- Python 3.11+
+- python-telegram-bot 20.7
+- Flask 2.3.3 (for potential webhook support)
+- Gunicorn 20.1.0
+- Render.com (Hosting)
+- GitHub (Version Control)
+- UptimeRobot (Monitoring)
+
+---
+
+## 🛡️ Environment Variables
+
+Create a `.env` file in your project root:
+
+```plaintext
+TOKEN=your-telegram-bot-token
+SOURCE_GROUP_ID=your-student-group-id
+TARGET_CHAT_ID=your-parent-group-id
+ADMIN_CHAT_ID=your-admin-user-id
+
+(Keep this file secret — never push it to GitHub.)
 
 
-4. **Deploy to Render**
-- Use the `render.yaml` file for deployment configuration
-- Set environment variables in the Render dashboard
+---
 
-5. **Set up Uptime Robot:**
-  - Monitor your bot's endpoint to ensure continuous operation.
+📂 Project Structure
 
-**📄 Files Overview**
-- `main.py` – Core bot functionality
-- `render.yaml` – Deployment configuration
-- `requirements.txt` – Python dependencies
-
-**📬 Contact**
-- Created by Tenzin
-- 📧 Email: `tenzidem97@gmail.com`
+telegram-bot/
+│
+├── main.py            # Main bot logic
+├── start_bot.bat      # Script to easily run the bot locally
+├── .env               # Environment file (not pushed to GitHub)
+├── .gitignore         # Ignore sensitive files like .env
+├── requirements.txt   # Project dependencies
+└── README.md          # You are here!
 
 
+---
 
-Feel free to fork, contribute, or open issues!
+🚀 Local Setup Guide
+
+1. Clone the repository:
+
+git clone https://github.com/your-username/telegram-bot.git
+cd telegram-bot
+
+
+2. Create virtual environment:
+
+python -m venv venv
+venv\Scripts\activate    # (Windows)
+
+
+3. Install dependencies:
+
+pip install -r requirements.txt
+
+
+4. Run the bot locally:
+
+python main.py
+
+
+
+
+---
+
+🌎 Deployment (Render.com)
+
+Connect GitHub to Render.com.
+
+Create a new Web Service.
+
+Set the build and start commands.
+
+Configure environment variables in Render dashboard.
+
+Monitor status using Render and UptimeRobot.
+
+
+
+---
+
+👑 Author
+
+> Tenzin
+Assistant Manager (Accounts), Visionary Technophile, Full-time Supermom, Part-time Bot Engineer.
