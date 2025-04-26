@@ -41,8 +41,11 @@ Spam and non-homework messages are automatically filtered and deleted to maintai
 Create a `.env` file in your project root:
 
 TOKEN=your-telegram-bot-token
+
 SOURCE_GROUP_ID=your-student-group-id
+
 TARGET_CHAT_ID=your-parent-group-id
+
 ADMIN_CHAT_ID=your-admin-user-id
 
 (Keep this file secret — 
