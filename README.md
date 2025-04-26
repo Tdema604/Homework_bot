@@ -55,10 +55,8 @@ venv\Scripts\activate # Windows
 OR
 source venv/bin/activate # Linux/Mac
 
-
 3.Install Dependencies:
 pip install -r requirements.txt
-
 
 4.Create .env File
 (or set Environment Variables manually):
@@ -127,7 +125,6 @@ For major changes, please open an issue first to discuss what you would like to 
 # 📄 License
 
 This project is open-sourced under the MIT License.
-
 
 ---
 
