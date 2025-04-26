@@ -77,15 +77,18 @@ git clone
 cd telegram-bot
 
 **2. Create virtual environment:**
+
 python -m venv venv
 venv\Scripts\activate # (Windows)
 
 
 **3. Install dependencies:**
+
 pip install -r requirements.txt
 
 
 **4. Run the bot locally:**
+
 python main.py
 
 ---
