@@ -1,4 +1,4 @@
-jiI'm# Telegram Homework Forwarder Bot
+ujiI'm# Telegram Homework Forwarder Bot
 
 A professional, automated Telegram bot system that forwards homework messages from a **Student Group** to a **Parent Group** based on specific keywords, ensuring streamlined communication between teachers and parents.  
 Spam and non-homework messages are automatically filtered and deleted to maintain a clean environment.
@@ -40,16 +40,16 @@ Spam and non-homework messages are automatically filtered and deleted to maintai
 
 Create a `.env` file in your project root:
 
-TOKEN=your-telegram-bot-token
+- TOKEN=your-telegram-bot-token
 
-SOURCE_GROUP_ID=your-student-group-id
+-SOURCE_GROUP_ID=your-student-group-id
 
-TARGET_CHAT_ID=your-parent-group-id
+- TARGET_CHAT_ID=your-parent-group-id
 
-ADMIN_CHAT_ID=your-admin-user-id
+- ADMIN_CHAT_ID=your-admin-user-id
 
-(Keep this file secret — 
-never push it to GitHub.)
+`(Keep this file secret — 
+never push it to GitHub.)`
 
 ---
 
