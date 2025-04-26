@@ -56,7 +56,7 @@ never push it to GitHub.)`
 
 ## 📂 Project Structure
 
-`
+`plaintext
 telegram-bot/
 │
 ├── main.py            # Main bot logic
