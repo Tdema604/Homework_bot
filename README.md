@@ -27,6 +27,7 @@ Homework Forwarder Bot is designed to:
 
 ## 📂 Project Structure
 
+```plaintext
 telegram-bot/
 │
 ├── main.py            # Core bot logic and message handling
@@ -36,6 +37,7 @@ telegram-bot/
 ├── requirements.txt   # Python dependencies
 └── README.md          # Project documentation
 
+```
 
 ---
 
