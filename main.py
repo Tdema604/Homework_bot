@@ -1,6 +1,7 @@
 from flask import Flask, request
 import telegram
 import os
+import re
 
 app = Flask(__name__)
 TOKEN = os.environ.get('TOKEN')
@@ -13,10 +14,35 @@ TARGET_CHAT_ID = -1002287165008
 
 HOMEWORK_KEYWORDS = ['homework', 'assignment', '#home', '#hw', 'task']
 SPAM_KEYWORDS = [
-    'jetonvpnbot', 'vpn', 'absolutely free', '🔥', '❤️', '📺', '📸',
-    'https://', 'http://', 't.me/', '@jetonvpnbot', 'начать пробный период',
+    'jetonvpnbot', 'vpn', 'absolutely free', 'начать пробный период',
     'бесплатно', 'IOS/Android/Windows/Mac', 'YouTube 🚀', 'Instagram ⚡️'
 ]
+
+# Regex pattern to detect URLs
+URL_REGEX = r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
+
+# Spam emojis list to detect in messages
+SPAM_EMOJIS = ['🔥', '❤️', '📺', '📸']
+
+# Function to check if a message is spam
+def is_spam(message):
+    message_lower = message.lower()  # Ensure case insensitivity
+
+    # Check if any spam keyword is in the message
+    for keyword in SPAM_KEYWORDS:
+        if keyword.lower() in message_lower:
+            return True
+
+    # Check if URL is present in the message
+    if re.search(URL_REGEX, message):
+        return True
+
+    # Check if any spam emoji is in the message
+    for emoji in SPAM_EMOJIS:
+        if emoji in message:
+            return True
+
+    return False
 
 @app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
@@ -30,6 +56,7 @@ def webhook():
         caption = update.message.caption.lower() if update.message.caption else ""
         is_forwarded = update.message.forward_date is not None
 
+        # If the message is from a bot, ban the user
         if update.message.from_user.is_bot:
             try:
                 bot.ban_chat_member(chat_id=chat_id, user_id=user_id)
@@ -38,11 +65,8 @@ def webhook():
                 bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"❌ Failed to ban user: {e}")
             return 'ok'
 
-        spam_detected = any(keyword in text for keyword in SPAM_KEYWORDS) or \
-                        any(keyword in caption for keyword in SPAM_KEYWORDS) or \
-                        is_forwarded
-
-        if spam_detected:
+        # Check if the message contains spam
+        if is_spam(text) or is_spam(caption) or is_forwarded:
             try:
                 bot.delete_message(chat_id=chat_id, message_id=message_id)
                 bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Deleted spam in group {chat_id}")
@@ -50,10 +74,12 @@ def webhook():
                 bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"❌ Failed to delete message in {chat_id}: {e}")
             return 'ok'
 
+        # If the user types "/start"
         if update.message.text == "/start":
             bot.send_message(chat_id=chat_id, text="✅ Bot is active!")
             return 'ok'
 
+        # Forward homework messages
         if chat_id == SOURCE_CHAT_ID:
             if any(keyword in text for keyword in HOMEWORK_KEYWORDS) or \
                any(keyword in caption for keyword in HOMEWORK_KEYWORDS):
