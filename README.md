@@ -49,8 +49,6 @@ ADMIN_CHAT_ID=your-admin-user-id
 (Keep this file secret — never push it to GitHub.)
 
 
----
-
 📂 Project Structure
 
 telegram-bot/
@@ -61,9 +59,6 @@ telegram-bot/
 ├── .gitignore         # Ignore sensitive files like .env
 ├── requirements.txt   # Project dependencies
 └── README.md          # You are here!
-
-
----
 
 🚀 Local Setup Guide
 
@@ -88,11 +83,6 @@ pip install -r requirements.txt
 
 python main.py
 
-
-
-
----
-
 🌎 Deployment (Render.com)
 
 Connect GitHub to Render.com.
@@ -106,8 +96,6 @@ Configure environment variables in Render dashboard.
 Monitor status using Render and UptimeRobot.
 
 
-
----
 
 👑 Author
 
