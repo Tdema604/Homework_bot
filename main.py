@@ -19,6 +19,15 @@ def webhook():
     update = telegram.Update.de_json(request.get_json(force=True), bot)
 
     if update.message:
+        # Auto-remove any bot accounts who send messages
+        user = update.message.from_user
+        if user.is_bot:
+            try:
+                bot.ban_chat_member(chat_id=chat_id, user_id=user.id)
+                bot.send_message(chat_id=chat_id, text=f"⚠️ Bot user @{user.username} was removed for safety.")
+            except Exception as e:
+                print(f"Failed to ban bot user: {e}")
+            return 'ok'
         chat_id = update.message.chat.id
         message_id = update.message.message_id
         text = update.message.text.lower() if update.message.text else ""
