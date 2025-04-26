@@ -48,6 +48,7 @@ ADMIN_CHAT_ID=your-admin-user-id
 
 (Keep this file secret — never push it to GitHub.)
 
+---
 
 ## 📂 Project Structure
 
@@ -60,6 +61,7 @@ telegram-bot/
 ├── requirements.txt   # Project dependencies
 └── README.md          # You are here!
 
+---
 
 ## 🚀 Local Setup Guide
 
@@ -80,6 +82,7 @@ pip install -r requirements.txt
 4. Run the bot locally
 python main.py
 
+---
 
 ## 🌎 Deployment (Render.com)
 
@@ -93,7 +96,7 @@ python main.py
 
 - Monitor status using Render and UptimeRobot.
 
-
+---
 
 ## 👑 Author
 
