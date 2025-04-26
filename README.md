@@ -53,7 +53,6 @@ never push it to GitHub.)`
 
 ---
 
-`
 
 ## 📂 Project Structure
 
