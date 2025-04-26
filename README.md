@@ -130,9 +130,10 @@ This project is open-sourced under the MIT License.
 - aspiring Tech Innovator.
 
 
-# Connect with me on:
+ Connect with me on:
 - Telegram: བསྟེན་འཛིན། [Meto Mother]
-- GitHub: 
+- GitHub: tdema604
+- Email: tenzidem97@gmail.com
 
 
 ---
