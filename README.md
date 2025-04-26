@@ -130,17 +130,12 @@ This project is open-sourced under the MIT License.
 
 # 👩‍💻 Author
 
-```plaintext
-
 - Tenzin — Assistant Manager (Accounts) 
 - aspiring Tech Innovator.
-
 
  Connect with me on:
 - Telegram: བསྟེན་འཛིན། [Meto Mother]
 - GitHub: Tdema604
 - Email: tenzidem97@gmail.com
-
-```
 
 ---
