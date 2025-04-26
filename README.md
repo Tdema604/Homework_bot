@@ -1,4 +1,4 @@
-# Telegram Homework Forwarder Bot
+I'm# Telegram Homework Forwarder Bot
 
 A professional, automated Telegram bot system that forwards homework messages from a **Student Group** to a **Parent Group** based on specific keywords, ensuring streamlined communication between teachers and parents.  
 Spam and non-homework messages are automatically filtered and deleted to maintain a clean environment.
@@ -60,7 +60,8 @@ telegram-bot/
 ├── requirements.txt   # Project dependencies
 └── README.md          # You are here!
 
-🚀 Local Setup Guide
+
+## 🚀 Local Setup Guide
 
 1. Clone the repository:
 
@@ -85,19 +86,22 @@ python main.py
 
 🌎 Deployment (Render.com)
 
-Connect GitHub to Render.com.
+- Connect GitHub to Render.com.
 
-Create a new Web Service.
+- Create a new Web Service.
 
-Set the build and start commands.
+-Set the build and start commands.
 
-Configure environment variables in Render dashboard.
+- Configure environment variables in Render dashboard.
 
-Monitor status using Render and UptimeRobot.
+- Monitor status using Render and UptimeRobot.
 
 
 
 👑 Author
 
 > Tenzin
-Assistant Manager (Accounts), Visionary Technophile, Full-time Supermom, Part-time Bot Engineer.
+Assistant Manager (Accounts) 
+Visionary Technophile 
+Full-time Supermom 
+Part-time Bot Engineer
