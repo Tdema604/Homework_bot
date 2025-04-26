@@ -1,118 +1,144 @@
-# Telegram Homework Forwarder Bot
+# Homework Forwarder Bot
 
-A professional, automated Telegram bot system that forwards homework messages from a **Student Group** to a **Parent Group** based on specific keywords, ensuring streamlined communication between teachers and parents.  
-Spam and non-homework messages are automatically filtered and deleted to maintain a clean environment.
+> Automating the bridge between Student Groups and Parent Groups on Telegram — seamless, secure, and smart.
 
 ---
 
-## 🚀 Features
+## 🚀 Project Overview
 
-- **Keyword-Based Forwarding:**  
-  Forwards only homework-related messages (e.g., containing "homework", "assignment", "worksheet").
-
-- **Spam Filtering:**  
-  Deletes irrelevant messages automatically from the Student Group.
-
-- **Admin Notification:**  
-  Notifies the admin when inappropriate content is deleted.
-
-- **Environment-Based Secrets:**  
-  Uses a `.env` file to manage sensitive credentials securely.
-
-- **Auto-Deployment:**  
-  Powered by **GitHub**, **Render.com**, and **UptimeRobot** for 24/7 uptime without manual restarts.
+Homework Forwarder Bot is designed to:
+- **Listen** for homework-related keywords in a student Telegram group.
+- **Forward** only valid homework messages to the parent Telegram group.
+- **Auto-delete** spam or unrelated messages to maintain a clean environment.
+- **Notify Admin** about any actions or errors transparently.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- Python 3.11+
-- python-telegram-bot 20.7
-- Flask 2.3.3 (for potential webhook support)
-- Gunicorn 20.1.0
-- Render.com (Hosting)
-- GitHub (Version Control)
-- UptimeRobot (Monitoring)
+- **Python 3.11+**
+- **python-telegram-bot (v20.7)** — Telegram Bot Framework
+- **dotenv** — Environment variable management
+- **Render** — Cloud hosting and deployment
+- **GitHub** — Version control & CI/CD integration
+- **UptimeRobot** — Bot health monitoring
 
 ---
-
-## 🛡️ Environment Variables
-
-Create a `.env` file in your project root:
-
-- TOKEN=your-telegram-bot-token
-
-- SOURCE_GROUP_ID=your-student-group-id
-
-- TARGET_CHAT_ID=your-parent-group-id
-
-- ADMIN_CHAT_ID=your-admin-user-id
-
-`(Keep this file secret — 
-never push it to GitHub.)`
-
----
-
 
 ## 📂 Project Structure
 
+```plaintext
 telegram-bot/
 │
-├── main.py            # Main bot logic
-├── start_bot.bat      # Script to easily run the bot locally
-├── .env               # Environment file (not pushed to GitHub)
-├── .gitignore         # Ignore sensitive files like .env
-├── requirements.txt   # Project dependencies
-└── README.md          # You are here!
+├── main.py            # Core bot logic and message handling
+├── start_bot.bat      # Optional script to start bot (for Windows users)
+├── .env               # Environment variables (KEEP SECRET)
+├── .gitignore         # Git ignored files/folders
+├── requirements.txt   # Python dependencies
+└── README.md          # Project documentation
 
 
 ---
 
-## 🚀 Local Setup Guide
+⚙️ Installation Guide
 
-**1. Clone the repository:**
+1. Clone this Repository
 
-git clone
- https://github.com/your-username/telegram-bot.git
+git clone https://github.com/yourusername/telegram-bot.git
 cd telegram-bot
 
-**2. Create virtual environment:**
+
+2. Set Up Virtual Environment
 
 python -m venv venv
-venv\Scripts\activate # (Windows)
+venv\Scripts\activate    # Windows
+# OR
+source venv/bin/activate # Linux/Mac
 
 
-**3. Install dependencies:**
+3. Install Dependencies
 
 pip install -r requirements.txt
 
 
-**4. Run the bot locally:**
+4. Create .env File
+(or set Environment Variables manually)
+
+TOKEN=your-telegram-bot-token
+SOURCE_GROUP_ID=your-student-group-id
+TARGET_CHAT_ID=your-parent-group-id
+ADMIN_CHAT_ID=your-admin-user-id
+
+
+5. Run the Bot
 
 python main.py
 
----
 
-## 🌎 Deployment (Render.com)
 
--Connect GitHub to Render.com.
-
--Create a new Web Service.
-
--Set the build and start commands.
-
--Configure environment variables in
- Render dashboard.
-
--Monitor status using Render and
- UptimeRobot.
 
 ---
 
-## 👑 Author
+☁️ Deployment Guide (Render.com)
 
-> Tenzin
-- Assistant Manager (Accounts) 
-- Visionary Technophile 
-- Full-time Supermom 
-- Part-time Bot Engineer
+Connect GitHub repository to Render.
+
+Add Environment Variables inside Render Dashboard.
+
+Set build command: pip install -r requirements.txt
+
+Set start command: python main.py
+
+Deploy and monitor bot 24/7!
+
+
+
+---
+
+📈 System Architecture Diagram
+
+> (COMING SOON... stay tuned!)
+
+
+
+
+---
+
+✨ Future Enhancements
+
+Add command-based interactions for teachers (e.g., /announce Homework...)
+
+AI spam detection for better filtering
+
+Web Dashboard for monitoring bot activities
+
+Secret management using HashiCorp Vault (Corporate Level)
+
+
+
+---
+
+🤝 Contributing
+
+Pull requests are welcome!
+For major changes, please open an issue first to discuss what you would like to change.
+
+
+---
+
+📄 License
+
+This project is open-sourced under the MIT License.
+
+
+---
+
+👩‍💻 Author
+
+Tenzin — Assistant Manager (Accounts), aspiring Tech Innovator.
+
+
+Connect with me on LinkedIn | Telegram
+
+
+---
