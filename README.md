@@ -27,7 +27,6 @@ Homework Forwarder Bot is designed to:
 
 ## 📂 Project Structure
 
-```plaintext
 telegram-bot/
 │
 ├── main.py            # Core bot logic and message handling
@@ -40,7 +39,7 @@ telegram-bot/
 
 ---
 
-⚙️ Installation Guide
+## ⚙️ Installation Guide
 
 1. Clone this Repository
 
@@ -64,10 +63,10 @@ pip install -r requirements.txt
 4. Create .env File
 (or set Environment Variables manually)
 
-TOKEN=your-telegram-bot-token
-SOURCE_GROUP_ID=your-student-group-id
-TARGET_CHAT_ID=your-parent-group-id
-ADMIN_CHAT_ID=your-admin-user-id
+- TOKEN=your-telegram-bot-token
+- SOURCE_GROUP_ID=your-student-group-id
+- TARGET_CHAT_ID=your-parent-group-id
+- ADMIN_CHAT_ID=your-admin-user-id
 
 
 5. Run the Bot
@@ -75,50 +74,44 @@ ADMIN_CHAT_ID=your-admin-user-id
 python main.py
 
 
+---
+
+## ☁️ Deployment Guide (Render.com)
+
+- Connect GitHub repository to Render.
+
+- Add Environment Variables inside Render Dashboard.
+
+- Set build command: pip install -r requirements.txt
+
+- Set start command: python main.py
+
+- Deploy and monitor bot 24/7!
 
 
 ---
 
-☁️ Deployment Guide (Render.com)
-
-Connect GitHub repository to Render.
-
-Add Environment Variables inside Render Dashboard.
-
-Set build command: pip install -r requirements.txt
-
-Set start command: python main.py
-
-Deploy and monitor bot 24/7!
-
-
-
----
-
-📈 System Architecture Diagram
+## 📈 System Architecture Diagram
 
 > (COMING SOON... stay tuned!)
 
 
+---
+
+## ✨ Future Enhancements
+
+- Add command-based interactions for teachers (e.g., /announce Homework...)
+
+- AI spam detection for better filtering
+
+- Web Dashboard for monitoring bot activities
+
+- Secret management using HashiCorp Vault (Corporate Level)
 
 
 ---
 
-✨ Future Enhancements
-
-Add command-based interactions for teachers (e.g., /announce Homework...)
-
-AI spam detection for better filtering
-
-Web Dashboard for monitoring bot activities
-
-Secret management using HashiCorp Vault (Corporate Level)
-
-
-
----
-
-🤝 Contributing
+## 🤝 Contributing
 
 Pull requests are welcome!
 For major changes, please open an issue first to discuss what you would like to change.
@@ -126,16 +119,17 @@ For major changes, please open an issue first to discuss what you would like to 
 
 ---
 
-📄 License
+# 📄 License
 
 This project is open-sourced under the MIT License.
 
 
 ---
 
-👩‍💻 Author
+# 👩‍💻 Author
 
-Tenzin — Assistant Manager (Accounts), aspiring Tech Innovator.
+- Tenzin — Assistant Manager (Accounts) 
+- aspiring Tech Innovator.
 
 
 Connect with me on LinkedIn | Telegram
