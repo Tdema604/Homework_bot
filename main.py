@@ -1,95 +1,68 @@
-from flask import Flask, request
-import telegram
 import os
-import re
+import telegram
+from telegram.ext import Application, MessageHandler, filters
+from dotenv import load_dotenv
 
-app = Flask(__name__)
-TOKEN = os.environ.get('TOKEN')
-ADMIN_CHAT_ID = int(os.environ.get('ADMIN_CHAT_ID', '0'))
+# Load environment variables
+load_dotenv()
 
+# Fetch configuration variables
+TOKEN = os.getenv("TOKEN")
+SOURCE_GROUP_ID = int(os.getenv("SOURCE_GROUP_ID"))
+TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
+
+# Debug Mode
+DEBUG_MODE = False
+
+# Initialize bot
 bot = telegram.Bot(token=TOKEN)
 
-SOURCE_CHAT_ID = -1002570406243
-TARGET_CHAT_ID = -1002287165008
+# Define keywords for detecting homework
+KEYWORDS = ["homework", "assignment", "worksheet"]
 
-HOMEWORK_KEYWORDS = ['homework', 'assignment', '#home', '#hw', 'task']
-SPAM_KEYWORDS = [
-    'jetonvpnbot', 'vpn', 'absolutely free', 'начать пробный период',
-    'бесплатно', 'IOS/Android/Windows/Mac', 'YouTube 🚀', 'Instagram ⚡️'
-]
+async def forward_message(update, context):
+    message = update.message
 
-# Regex pattern to detect URLs
-URL_REGEX = r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
+    if not message:  # Extra safety check
+        return
 
-# Spam emojis list to detect in messages
-SPAM_EMOJIS = ['🔥', '❤️', '📺', '📸']
+    if message.chat.id == SOURCE_GROUP_ID:
+        # Combine text/caption
+        text_content = message.text or message.caption or ""
+        text_lower = text_content.lower()
 
-# Function to check if a message is spam
-def is_spam(message):
-    message_lower = message.lower()  # Ensure case insensitivity
-
-    # Check if any spam keyword is in the message
-    for keyword in SPAM_KEYWORDS:
-        if keyword.lower() in message_lower:
-            return True
-
-    # Check if URL is present in the message
-    if re.search(URL_REGEX, message):
-        return True
-
-    # Check if any spam emoji is in the message
-    for emoji in SPAM_EMOJIS:
-        if emoji in message:
-            return True
-
-    return False
-
-@app.route(f'/{TOKEN}', methods=['POST'])
-def webhook():
-    update = telegram.Update.de_json(request.get_json(force=True), bot)
-
-    if update.message:
-        chat_id = update.message.chat.id
-        message_id = update.message.message_id
-        user_id = update.message.from_user.id
-        text = update.message.text.lower() if update.message.text else ""
-        caption = update.message.caption.lower() if update.message.caption else ""
-        is_forwarded = update.message.forward_date is not None
-
-        # If the message is from a bot, ban the user
-        if update.message.from_user.is_bot:
+        if any(keyword in text_lower for keyword in KEYWORDS):
             try:
-                bot.ban_chat_member(chat_id=chat_id, user_id=user_id)
-                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Banned a bot user from group {chat_id}")
+                # Forward appropriate message based on type
+                if message.text:
+                    await bot.send_message(chat_id=TARGET_CHAT_ID, text=message.text)
+                elif message.photo:
+                    await bot.send_photo(chat_id=TARGET_CHAT_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
+                elif message.document:
+                    await bot.send_document(chat_id=TARGET_CHAT_ID, document=message.document.file_id, caption=message.caption or "")
+
+                # Notify admin gently (optional)
+                await bot.send_message(chat_id=ADMIN_CHAT_ID, text="✅ Homework forwarded to parents group!")
+
+                if DEBUG_MODE:
+                    print(f"✅ Homework forwarded successfully: {text_content[:30]}...")
+
             except Exception as e:
-                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"❌ Failed to ban user: {e}")
-            return 'ok'
+                error_msg = f"⚠️ Error forwarding homework: {e}"
+                await bot.send_message(chat_id=ADMIN_CHAT_ID, text=error_msg)
+                if DEBUG_MODE:
+                    print(error_msg)
 
-        # Check if the message contains spam
-        if is_spam(text) or is_spam(caption) or is_forwarded:
-            try:
-                bot.delete_message(chat_id=chat_id, message_id=message_id)
-                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Deleted spam in group {chat_id}")
-            except telegram.error.TelegramError as e:
-                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"❌ Failed to delete message in {chat_id}: {e}")
-            return 'ok'
+        else:
+            # Do nothing if not homework
+            if DEBUG_MODE:
+                print(f"ℹ️ Non-homework message ignored: {text_content[:30]}...")
 
-        # If the user types "/start"
-        if update.message.text == "/start":
-            bot.send_message(chat_id=chat_id, text="✅ Bot is active!")
-            return 'ok'
+# Initialize and run the bot
+app = Application.builder().token(TOKEN).build()
 
-        # Forward homework messages
-        if chat_id == SOURCE_CHAT_ID:
-            if any(keyword in text for keyword in HOMEWORK_KEYWORDS) or \
-               any(keyword in caption for keyword in HOMEWORK_KEYWORDS):
-                bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=chat_id, message_id=message_id)
+app.add_handler(MessageHandler(filters.ALL, forward_message))
 
-    return 'ok'
-
-@app.route('/')
-def index():
-    return 'Bot is alive!'
-
-if __name__ == '__main__':
-    app.run()
+print("🚀 Bot is running cleanly... Waiting for homework messages.")
+app.run_polling()
