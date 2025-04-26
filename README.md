@@ -53,12 +53,12 @@ never push it to GitHub.)`
 
 ---
 
+```markdown
+
 ## 📂 Project Structure
 
-``plaintext
-
+```plaintext
 telegram-bot/
-
 │
 ├── main.py            # Main bot logic
 ├── start_bot.bat      # Script to easily run the bot locally
