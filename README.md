@@ -69,9 +69,7 @@ pip install -r requirements.txt
 - ADMIN_CHAT_ID=your-admin-user-id
 
 
-5.Run the Bot:
-
-python main.py
+5.Run the Bot: python main.py
 
 
 ---
