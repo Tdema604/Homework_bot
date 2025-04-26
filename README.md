@@ -57,6 +57,7 @@ never push it to GitHub.)`
 
 
 telegram-bot/
+
 │
 ├── main.py            # Main bot logic
 ├── start_bot.bat      # Script to easily run the bot locally
