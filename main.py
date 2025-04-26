@@ -11,44 +11,39 @@ TARGET_CHAT_ID = -1002287165008  # Parents group
 
 # Keywords to identify homework-related messages
 HOMEWORK_KEYWORDS = ['homework', 'assignment', '#home', '#hw', 'task']
-# Keywords to detect spam
-SPAM_KEYWORDS = ['vpn', '@jetonvpnbot', 'бесплатно', 'instagram', 'youtube', 'ios', 'mac']
+
+# Keywords to identify spam messages (add more if needed)
+SPAM_KEYWORDS = ['vpn', '@jetonvpnbot', 'бесплатно', '🔥', '❤️', 'https://t.me/JetonVPNbot']
 
 @app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
     update = telegram.Update.de_json(request.get_json(force=True), bot)
 
     if update.message:
-        # Auto-remove any bot accounts who send messages
-        user = update.message.from_user
-        if user.is_bot:
-            try:
-                bot.ban_chat_member(chat_id=chat_id, user_id=user.id)
-                bot.send_message(chat_id=chat_id, text=f"⚠️ Bot user @{user.username} was removed for safety.")
-            except Exception as e:
-                print(f"Failed to ban bot user: {e}")
-            return 'ok'
         chat_id = update.message.chat.id
         message_id = update.message.message_id
         text = update.message.text.lower() if update.message.text else ""
         caption = update.message.caption.lower() if update.message.caption else ""
+        user = update.message.from_user
 
-        # Check if it's a /start command
-        if update.message.text == "/start":
-            bot.send_message(chat_id=chat_id, text="✅ Bot is active!")
-            return 'ok'
-
-        if chat_id == SOURCE_CHAT_ID:
-            # First check if spam — if yes, delete the message
-            if any(spam_word in text for spam_word in SPAM_KEYWORDS) or \
-               any(spam_word in caption for spam_word in SPAM_KEYWORDS):
-                try:
-                    bot.delete_message(chat_id=chat_id, message_id=message_id)
-                except Exception as e:
-                    print(f"Failed to delete spam: {e}")
+        # Block bot accounts
+        if user.is_bot:
+            try:
+                bot.ban_chat_member(chat_id=chat_id, user_id=user.id)
+                return 'ok'
+            except:
                 return 'ok'
 
-            # Then if homework-related and clean, forward to parents group
+        # Delete spam messages
+        if any(keyword in text for keyword in SPAM_KEYWORDS) or any(keyword in caption for keyword in SPAM_KEYWORDS):
+            try:
+                bot.delete_message(chat_id=chat_id, message_id=message_id)
+            except:
+                pass
+            return 'ok'
+
+        # Only forward if it's from source and contains homework keyword
+        if chat_id == SOURCE_CHAT_ID:
             if any(keyword in text for keyword in HOMEWORK_KEYWORDS) or \
                any(keyword in caption for keyword in HOMEWORK_KEYWORDS):
                 bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=chat_id, message_id=message_id)
