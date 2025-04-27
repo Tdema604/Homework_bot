@@ -29,8 +29,10 @@ def is_spam(text):
     SPAM_KEYWORDS = [
     "free", "click here", "buy now", "limited time", "offer", "deal", "visit", "subscribe",
     "discount", "special offer", "promotion", "win big", "urgent", "click to claim", "winning",
-    "vpn", "start free trial", "get free access", "limited offer"
-]
+    "vpn", "start free trial", "get free access", "limited offer"]
+    if re.search(r"https?://(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(/[\w#!:.,?+=&%@!-/]*)?", text):
+    return True
+
     if any(word in text.lower() for word in spam_keywords):
         return True
     return False
