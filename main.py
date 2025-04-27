@@ -1,107 +1,96 @@
-import os
-import asyncio
+from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    filters,
-    ContextTypes,
-)
+import os
+import logging
+from telegram.error import TelegramError
+import re
+from telegram.ext import ContextTypes
 
-# Fetch sensitive information from environment variables (SECURE)
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+
+# Load environment variables
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
 TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
 
-print("Bot Token:", TOKEN)
-print("Admin Chat ID:", ADMIN_CHAT_ID)
-print("Target Chat ID:", TARGET_CHAT_ID)
+# Safety checks
+if not TOKEN or not ADMIN_CHAT_ID or not TARGET_CHAT_ID:
+    raise ValueError("Missing critical environment variables!")
 
-print(f"Loaded BOT TOKEN: {TOKEN}")
+# Build the bot application
+app = ApplicationBuilder().token(TOKEN).build()
 
-# Define list of spam words (can add more later)
-SPAM_WORDS = ['buy now', 'free', 'click here', 'subscribe', 'promotion', 'offer']
+# List of suspicious words/phrases that often appear in spam
+SPAM_KEYWORDS = [
+    "free", "click here", "buy now", "limited time", "offer", "deal", "visit", "subscribe",
+    "discount", "special offer", "promotion", "win big", "urgent", "click to claim", "winning"
+]
 
-# Start Command
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 Hello! I'm your Homework Forwarder Bot!")
+# Function to detect spam based on suspicious patterns in text
+def is_spam(text):
+    # Check for suspicious words/phrases
+    if any(word in text.lower() for word in SPAM_KEYWORDS):
+        return True
 
-# Handle All Messages
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message:
-        return  # Safety check
+    # Check for links (basic link pattern)
+    if re.search(r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+", text):
+        return True
+    
+    return False
 
-    message = update.message
-    text = message.text or ""
-    caption = message.caption or ""
+# Handler for homework messages (Text, Image, Doc, Video)
+async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        message = update.message
 
-    # Combine text and caption for spam filtering
-    combined_content = (text + " " + caption).lower()
-
-    # Check for spam
-    if any(word in combined_content for word in SPAM_WORDS):
-        try:
+        # Check if message is spam
+        if message.text and is_spam(message.text):
             await message.delete()
             await context.bot.send_message(
                 chat_id=ADMIN_CHAT_ID,
-                text=f"🚨 [Spam Deleted]\nFrom: @{message.from_user.username or message.from_user.id}\nContent: {combined_content[:50]}..."
+                text=f"🚨 Spam message deleted from {update.effective_chat.title or update.effective_chat.id}. Message: {message.text[:100]}"
             )
-        except Exception as e:
-            print(f"Error deleting spam message: {e}")
-        return
+            return
 
-    # Check for Homework keyword
-    if 'homework' in combined_content:
-        try:
-            # Forward text message
-            if text:
-                await context.bot.send_message(
-                    chat_id=TARGET_CHAT_ID,
-                    text=f"📚 Homework:\n\n{text}"
-                )
-            # Forward files (Images, PDFs, Word Docs, etc.)
-            elif message.document or message.photo or message.video:
-                if message.document:
-                    await context.bot.send_document(
-                        chat_id=TARGET_CHAT_ID,
-                        document=message.document.file_id,
-                        caption=caption or "📚 Homework Document"
-                    )
-                elif message.photo:
-                    await context.bot.send_photo(
-                        chat_id=TARGET_CHAT_ID,
-                        photo=message.photo[-1].file_id,
-                        caption=caption or "📚 Homework Photo"
-                    )
-                elif message.video:
-                    await context.bot.send_video(
-                        chat_id=TARGET_CHAT_ID,
-                        video=message.video.file_id,
-                        caption=caption or "📚 Homework Video"
-                    )
+        # Acceptable file types for homework (Text, Image, Doc, Video)
+        if (message.text and "homework" in message.text.lower()) or \
+           message.document or message.photo or message.video:
 
-            # Notify Admin about forwarded homework
+            # Forward the message
+            await context.bot.forward_message(
+                chat_id=TARGET_CHAT_ID,
+                from_chat_id=update.effective_chat.id,
+                message_id=message.message_id
+            )
+
+            # Notify Admin
             await context.bot.send_message(
                 chat_id=ADMIN_CHAT_ID,
-                text=f"✅ [Homework Forwarded]\nFrom: @{message.from_user.username or message.from_user.id}\nContent: {combined_content[:50]}..."
+                text=f"✅ Homework forwarded from group: {update.effective_chat.title or update.effective_chat.id}"
             )
-        except Exception as e:
-            print(f"Error forwarding homework: {e}")
+        
+    except TelegramError as e:
+        logging.error(f"Telegram Error: {e}")
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"⚠️ Error occurred while processing a message: {e}"
+        )
+    except Exception as e:
+        logging.error(f"General Error: {e}")
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"⚠️ General error: {e}"
+        )
 
-# Main function
-async def main():
-    # Create bot application
-    app = ApplicationBuilder().token(TOKEN).build()
+# Optional command: /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Bot is online and ready to forward homework!")
 
-    # Add handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.ALL, handle_message))
+# Register Handlers
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.ALL, forward_homework))
 
-    # Start bot
-    print("🚀 Bot is running...")
-    await app.run_polling()
-
-# Launch
+# Start polling
 if __name__ == "__main__":
-    asyncio.run(main())
+    app.run_polling()
