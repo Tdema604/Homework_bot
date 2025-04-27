@@ -3,7 +3,7 @@ import os
 import re
 from flask import Flask, request, jsonify
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Filters, ContextTypes
 from telegram.error import TelegramError
 
 # Initialize Flask app
@@ -32,11 +32,10 @@ def is_spam(text):
         "discount", "special offer", "promotion", "win big", "urgent", "click to claim", "winning",
         "vpn", "start free trial", "get free access", "limited offer"
     ]
-    # Check if message contains any spam keywords
-    if any(word in text.lower() for word in SPAM_KEYWORDS):
-        return True
-    # Enhanced link detection
+    # Detect URLs and common spam words
     if re.search(r"https?://(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(/[\w#!:.,?+=&%@!-/]*)?", text):
+        return True
+    if any(word in text.lower() for word in SPAM_KEYWORDS):
         return True
     return False
 
@@ -98,7 +97,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Register handlers
 application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_homework))  # Updated filter
+application.add_handler(MessageHandler(Filters.ALL, handle_homework))
 
 # Set Webhook route
 @app.route(f'/{TOKEN}', methods=['POST'])
