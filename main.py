@@ -1,69 +1,83 @@
+import logging
 from flask import Flask, request
-import telegram
+from telegram import Bot, Update
+from telegram.ext import Dispatcher, CommandHandler, CallbackContext
+from telegram.ext import Updater
 import os
 
+# Initialize Flask app
 app = Flask(__name__)
-TOKEN = os.environ.get('TOKEN')
-ADMIN_CHAT_ID = int(os.environ.get('ADMIN_CHAT_ID', '0'))
 
-bot = telegram.Bot(token=TOKEN)
+# Logging setup for better traceability
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('bot.log'), logging.StreamHandler()])
+logger = logging.getLogger(__name__)
 
-SOURCE_CHAT_ID = -1002570406243
-TARGET_CHAT_ID = -1002287165008
+# Your bot's token and other necessary configuration
+TOKEN = os.getenv("TOKEN")
+SOURCE_GROUP_ID = os.getenv("SOURCE_GROUP_ID")
+TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
+ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 
-HOMEWORK_KEYWORDS = ['homework', 'assignment', '#home', '#hw', 'task']
-SPAM_KEYWORDS = [
-    'jetonvpnbot', 'vpn', 'absolutely free', '🔥', '❤️', '📺', '📸',
-    'https://', 'http://', 't.me/', '@jetonvpnbot', 'начать пробный период',
-    'бесплатно', 'IOS/Android/Windows/Mac', 'YouTube 🚀', 'Instagram ⚡️'
-]
+# Initialize the Telegram Bot
+bot = Bot(TOKEN)
 
-@app.route(f'/{TOKEN}', methods=['POST'])
+def start(update: Update, context: CallbackContext):
+    """Respond to /start command."""
+    logger.info("Bot started.")
+    update.message.reply_text("Hello, I'm your bot for homework forwarding!")
+
+def forward_homework(update: Update, context: CallbackContext):
+    """Forward homework messages to the parent group."""
+    logger.info(f"Forwarding homework message from {update.message.from_user.username} to parent group.")
+    context.bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=update.message.chat_id, message_id=update.message.message_id)
+
+def filter_homework(update: Update, context: CallbackContext):
+    """Filter homework-related messages based on keywords."""
+    message_text = update.message.text.lower()
+    homework_keywords = ["homework", "assignment", "worksheet"]
+
+    # Forward message if it's a homework message
+    if any(keyword in message_text for keyword in homework_keywords):
+        forward_homework(update, context)
+    else:
+        # If it's not a homework message, delete the message
+        update.message.delete()
+        logger.info(f"Deleted non-homework message from {update.message.from_user.username}")
+
+# Webhook route to handle incoming updates from Telegram
+@app.route('/webhook', methods=['POST'])
 def webhook():
-    update = telegram.Update.de_json(request.get_json(force=True), bot)
-
-    if update.message:
-        chat_id = update.message.chat.id
-        message_id = update.message.message_id
-        user_id = update.message.from_user.id
-        text = update.message.text.lower() if update.message.text else ""
-        caption = update.message.caption.lower() if update.message.caption else ""
-        is_forwarded = update.message.forward_date is not None
-
-        if update.message.from_user.is_bot:
-            try:
-                bot.ban_chat_member(chat_id=chat_id, user_id=user_id)
-                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Banned a bot user from group {chat_id}")
-            except Exception as e:
-                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"❌ Failed to ban user: {e}")
-            return 'ok'
-
-        spam_detected = any(keyword in text for keyword in SPAM_KEYWORDS) or \
-                        any(keyword in caption for keyword in SPAM_KEYWORDS) or \
-                        is_forwarded
-
-        if spam_detected:
-            try:
-                bot.delete_message(chat_id=chat_id, message_id=message_id)
-                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Deleted spam in group {chat_id}")
-            except telegram.error.TelegramError as e:
-                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"❌ Failed to delete message in {chat_id}: {e}")
-            return 'ok'
-
-        if update.message.text == "/start":
-            bot.send_message(chat_id=chat_id, text="✅ Bot is active!")
-            return 'ok'
-
-        if chat_id == SOURCE_CHAT_ID:
-            if any(keyword in text for keyword in HOMEWORK_KEYWORDS) or \
-               any(keyword in caption for keyword in HOMEWORK_KEYWORDS):
-                bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=chat_id, message_id=message_id)
-
+    """Webhook handler for receiving updates from Telegram."""
+    json_str = request.get_data().decode('UTF-8')
+    update = Update.de_json(json_str, bot)
+    dispatcher.process_update(update)
     return 'ok'
 
-@app.route('/')
-def index():
-    return 'Bot is alive!'
+# Set webhook when bot is deployed
+def set_webhook():
+    """Set up the webhook with your Render URL."""
+    webhook_url = os.getenv("WEBHOOK_URL")  # Ensure you configure this in Render's dashboard
+    bot.set_webhook(url=webhook_url + "/webhook")
+    logger.info(f"Webhook set to {webhook_url}/webhook")
+
+def main():
+    """Main entry point for the bot."""
+    global dispatcher
+
+    # Setup the dispatcher
+    dispatcher = Dispatcher(bot, None)
+
+    # Command Handlers
+    dispatcher.add_handler(CommandHandler("start", start))
+
+    # Filter homework-related messages and forward them
+    dispatcher.add_handler(MessageHandler(Filters.text, filter_homework))
+
+    # Set up webhook after bot initialization
+    set_webhook()
 
 if __name__ == '__main__':
-    app.run()
+    main()
+
+    # Run the Flask app with Gunicorn (for production)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
