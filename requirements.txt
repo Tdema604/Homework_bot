@@ -1,2 +1,3 @@
-python-telegram-bot==20.7
-gunicorn==20.1.0  # Keep gunicorn if you might want to use it for other purposes later, otherwise remove it.
+flask==2.3.3
+python-telegram-bot[webhooks]==20.7
+gunicorn==20.1.0
