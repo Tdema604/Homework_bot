@@ -1,13 +1,14 @@
-from telegram import Bot, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 import logging
 import os
 import re
+from telegram import Bot, Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.error import TelegramError
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
 
-# Load environment variables
+# Load environment variables securely
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
@@ -17,7 +18,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Make sure to set this in Render's envi
 if not TOKEN or not WEBHOOK_URL:
     raise ValueError("TELEGRAM_BOT_TOKEN or WEBHOOK_URL missing in environment variables!")
 
-# Initialize the app
+# Create bot application instance
 app = ApplicationBuilder().token(TOKEN).build()
 
 # List of suspicious words/phrases that often appear in spam
@@ -38,8 +39,8 @@ def is_spam(text):
     
     return False
 
-# Handler for homework messages (Text, Image, Doc, Video)
-async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Example handler for forwarding homework messages
+async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = update.message
 
@@ -83,16 +84,26 @@ async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=f"⚠️ Invalid message type received: {update.effective_chat.title or update.effective_chat.id}. Message: {message.text[:100]}"
             )
         
-    except Exception as e:
-        logging.error(f"Error: {e}")
+    except TelegramError as e:
+        logging.error(f"Telegram Error: {e}")
         await context.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
             text=f"⚠️ Error occurred while processing a message: {e}"
+        )
+    except Exception as e:
+        logging.error(f"General Error: {e}")
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"⚠️ General error: {e}"
         )
 
 # Optional command: /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Bot is online and ready to forward homework!")
+
+# Register Handlers
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.ALL, handle_homework))
 
 # Set Webhook
 async def set_webhook():
@@ -100,11 +111,7 @@ async def set_webhook():
     webhook_url = f"{WEBHOOK_URL}/{TOKEN}"
     await bot.set_webhook(url=webhook_url)
 
-# Register Handlers
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.ALL, forward_homework))
-
-# Set the webhook when starting
+# Start bot with webhook
 if __name__ == "__main__":
     import asyncio
     loop = asyncio.get_event_loop()
