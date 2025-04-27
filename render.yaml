@@ -1,16 +1,9 @@
-services:
-  - type: web
-    name: telegram-homework-bot
-    env: python
-    plan: free
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python main.py"  # Run the bot directly
-    envVars:
-      - key: TELEGRAM_BOT_TOKEN
-        value: 7780579160:AAGTzhX0Y5l6-R17gxEIjj8IsP61XKBIcts
-      - key: ADMIN_CHAT_ID
-        value: 740241927
-      - key: TARGET_CHAT_ID
-        value: -1002287165008
-      - key: WEBHOOK_URL
-        value: <your_webhook_url_here>  # Replace with your actual webhook URL
+envVars:
+   - key: TELEGRAM_BOT_TOKEN
+     value: 7780579160:AAGTzhX0Y5l6-R17gxEIjj8IsP61XKBIcts
+   - key: ADMIN_CHAT_ID
+     value: 740241927
+   - key: TARGET_CHAT_ID
+     value: -1002287165008
+   - key: WEBHOOK_URL
+     value: https://telegram-homework-bot.onrender.com/7780579160:AAGTzhX0Y5l6-R17gxEIjj8IsP61XKBIcts
