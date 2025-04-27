@@ -44,6 +44,14 @@ async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = update.message
 
+        # Check if message exists and isn't None
+        if not message:
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text=f"⚠️ Error: Received an invalid or empty message in group: {update.effective_chat.title or update.effective_chat.id}"
+            )
+            return
+
         # Check if message is spam
         if message.text and is_spam(message.text):
             await message.delete()
@@ -69,6 +77,25 @@ async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=ADMIN_CHAT_ID,
                 text=f"✅ Homework forwarded from group: {update.effective_chat.title or update.effective_chat.id}"
             )
+
+        else:
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text=f"⚠️ Invalid message type received: {update.effective_chat.title or update.effective_chat.id}. Message: {message.text[:100]}"
+            )
+        
+    except TelegramError as e:
+        logging.error(f"Telegram Error: {e}")
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"⚠️ Error occurred while processing a message: {e}"
+        )
+    except Exception as e:
+        logging.error(f"General Error: {e}")
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"⚠️ General error: {e}"
+        )
         
     except TelegramError as e:
         logging.error(f"Telegram Error: {e}")
