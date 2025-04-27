@@ -105,11 +105,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.ALL, handle_homework))
 
-# Set Webhook
 async def set_webhook():
     bot = Bot(TOKEN)
-    webhook_url = f"{WEBHOOK_URL}/{TOKEN}"
+    webhook_url = f"{WEBHOOK_URL}/{TOKEN}"  # Ensure this URL is HTTPS
     await bot.set_webhook(url=webhook_url)
+
 
 # Start bot with webhook
 if __name__ == "__main__":
