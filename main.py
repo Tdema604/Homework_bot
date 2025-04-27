@@ -24,7 +24,7 @@ app = ApplicationBuilder().token(TOKEN).build()
 # List of suspicious words/phrases that often appear in spam
 SPAM_KEYWORDS = [
     "free", "click here", "buy now", "limited time", "offer", "deal", "visit", "subscribe",
-    "discount", "special offer", "promotion", "win big", "urgent", "click to claim", "winning"
+    "discount", "special offer", "promotion", "win big", "click to claim", "winning"
 ]
 
 # Function to detect spam based on suspicious patterns in text
