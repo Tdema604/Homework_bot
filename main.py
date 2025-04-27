@@ -14,6 +14,11 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
 TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
 
+print("Bot Token:", TOKEN)
+print("Admin Chat ID:", ADMIN_CHAT_ID)
+print("Target Chat ID:", TARGET_CHAT_ID)
+
+
 # Define list of spam words (can add more later)
 SPAM_WORDS = ['buy now', 'free', 'click here', 'subscribe', 'promotion', 'offer']
 
