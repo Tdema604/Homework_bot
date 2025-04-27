@@ -1,61 +1,69 @@
-import os
-import telegram
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters
-from telegram.ext import CommandHandler, CallbackContext
-from dotenv import load_dotenv
 from flask import Flask, request
-import logging
+import telegram
+import os
 
-# Load environment variables
-load_dotenv()
+app = Flask(__name__)
+TOKEN = os.environ.get('TOKEN')
+ADMIN_CHAT_ID = int(os.environ.get('ADMIN_CHAT_ID', '0'))
 
-# Fetch environment variables
-TOKEN = os.getenv("TOKEN")
-SOURCE_GROUP_ID = int(os.getenv("SOURCE_GROUP_ID"))
-TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
-ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
-
-# Initialize bot
 bot = telegram.Bot(token=TOKEN)
 
-# Flask app for Render health check
-app_flask = Flask('')
+SOURCE_CHAT_ID = -1002570406243
+TARGET_CHAT_ID = -1002287165008
 
-@app_flask.route('/')
-def home():
-    return "Bot is running!"
+HOMEWORK_KEYWORDS = ['homework', 'assignment', '#home', '#hw', 'task']
+SPAM_KEYWORDS = [
+    'jetonvpnbot', 'vpn', 'absolutely free', '🔥', '❤️', '📺', '📸',
+    'https://', 'http://', 't.me/', '@jetonvpnbot', 'начать пробный период',
+    'бесплатно', 'IOS/Android/Windows/Mac', 'YouTube 🚀', 'Instagram ⚡️'
+]
 
-# Webhook handler function
-@app_flask.route('/' + TOKEN, methods=['POST'])
+@app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
-    json_str = request.get_data().decode("UTF-8")
-    update = telegram.Update.de_json(json_str, bot)
-    
-    # Message forwarding logic
-    message = update.message
-    if message.chat.id == SOURCE_GROUP_ID:
-        if message.text and any(keyword.lower() in message.text.lower() for keyword in ["homework", "assignment", "worksheet"]):
-            bot.send_message(chat_id=TARGET_CHAT_ID, text=message.text)
-        elif message.photo:
-            if message.caption and any(keyword.lower() in message.caption.lower() for keyword in ["homework", "assignment", "worksheet"]):
-                bot.send_photo(chat_id=TARGET_CHAT_ID, photo=message.photo[-1].file_id, caption=message.caption)
-        elif message.document:
-            if message.caption and any(keyword.lower() in message.caption.lower() for keyword in ["homework", "assignment", "worksheet"]):
-                bot.send_document(chat_id=TARGET_CHAT_ID, document=message.document.file_id, caption=message.caption)
-        else:
-            print("⚡ Non-homework message detected, ignoring...")
-    return "OK"
+    update = telegram.Update.de_json(request.get_json(force=True), bot)
 
-# Set up webhook
-def set_webhook():
-    url = f'https://your-render-app-url/{TOKEN}'  # Replace with your Render app URL
-    bot.set_webhook(url)
+    if update.message:
+        chat_id = update.message.chat.id
+        message_id = update.message.message_id
+        user_id = update.message.from_user.id
+        text = update.message.text.lower() if update.message.text else ""
+        caption = update.message.caption.lower() if update.message.caption else ""
+        is_forwarded = update.message.forward_date is not None
+
+        if update.message.from_user.is_bot:
+            try:
+                bot.ban_chat_member(chat_id=chat_id, user_id=user_id)
+                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Banned a bot user from group {chat_id}")
+            except Exception as e:
+                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"❌ Failed to ban user: {e}")
+            return 'ok'
+
+        spam_detected = any(keyword in text for keyword in SPAM_KEYWORDS) or \
+                        any(keyword in caption for keyword in SPAM_KEYWORDS) or \
+                        is_forwarded
+
+        if spam_detected:
+            try:
+                bot.delete_message(chat_id=chat_id, message_id=message_id)
+                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Deleted spam in group {chat_id}")
+            except telegram.error.TelegramError as e:
+                bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"❌ Failed to delete message in {chat_id}: {e}")
+            return 'ok'
+
+        if update.message.text == "/start":
+            bot.send_message(chat_id=chat_id, text="✅ Bot is active!")
+            return 'ok'
+
+        if chat_id == SOURCE_CHAT_ID:
+            if any(keyword in text for keyword in HOMEWORK_KEYWORDS) or \
+               any(keyword in caption for keyword in HOMEWORK_KEYWORDS):
+                bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=chat_id, message_id=message_id)
+
+    return 'ok'
+
+@app.route('/')
+def index():
+    return 'Bot is alive!'
 
 if __name__ == '__main__':
-    # Set the webhook when starting the app
-    set_webhook()
-    
-    # Start Flask app (for health check and handling webhook requests)
-    port = int(os.environ.get('PORT', 5000))
-    app_flask.run(host="0.0.0.0", port=port)
+    app.run()
