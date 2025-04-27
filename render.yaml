@@ -7,7 +7,7 @@ services:
     startCommand: "gunicorn main:app"
     envVars:
       - key: TOKEN
-        value:7780579160:AAG4nFWd73C2DZo-QMee7qxQXsmlSlhcGlQ
+        value:7780579160:AAGTzhX0Y5l6-R17gxEIjj8IsP61XKBIcts
       - key: ADMIN_CHAT_ID
         value:740241927
       - key: SOURCE_GROUP_ID
