@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "python main.py"
+    startCommand: "gunicorn -b 0.0.0.0:$PORT main:app"  # Gunicorn to bind to dynamic $PORT
        envVars:
       - key: TOKEN
         value:7780579160:AAGTzhX0Y5l6-R17gxEIjj8IsP61XKBIcts
