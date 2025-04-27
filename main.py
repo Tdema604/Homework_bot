@@ -1,8 +1,7 @@
 import logging
 from flask import Flask, request
 from telegram import Bot, Update
-from telegram.ext import Dispatcher, CommandHandler, CallbackContext
-from telegram.ext import Updater
+from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters, CallbackContext
 import os
 
 # Initialize Flask app
@@ -31,14 +30,32 @@ def forward_homework(update: Update, context: CallbackContext):
     logger.info(f"Forwarding homework message from {update.message.from_user.username} to parent group.")
     context.bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=update.message.chat_id, message_id=update.message.message_id)
 
+def forward_media(update: Update, context: CallbackContext):
+    """Forward media (images, documents, PDFs, etc.) related to homework."""
+    logger.info(f"Forwarding media message from {update.message.from_user.username} to parent group.")
+    media = None
+    if update.message.photo:
+        # Forward the first photo
+        media = update.message.photo[-1].file_id
+    elif update.message.document:
+        # Forward the document (could be PDF, Word, etc.)
+        media = update.message.document.file_id
+
+    if media:
+        context.bot.send_document(chat_id=TARGET_CHAT_ID, document=media, caption=update.message.caption)
+
 def filter_homework(update: Update, context: CallbackContext):
     """Filter homework-related messages based on keywords."""
     message_text = update.message.text.lower()
-    homework_keywords = ["homework", "assignment", "worksheet"]
+    homework_keywords = ["homework", "assignment", "worksheet", "pdf", "word document", "study material"]
 
-    # Forward message if it's a homework message
+    # Check if the message contains homework keywords
     if any(keyword in message_text for keyword in homework_keywords):
+        # Forward text messages if they contain homework-related keywords
         forward_homework(update, context)
+        
+        # Check and forward any media (images, documents, PDFs, etc.)
+        forward_media(update, context)
     else:
         # If it's not a homework message, delete the message
         update.message.delete()
@@ -72,6 +89,7 @@ def main():
 
     # Filter homework-related messages and forward them
     dispatcher.add_handler(MessageHandler(Filters.text, filter_homework))
+    dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, filter_homework))
 
     # Set up webhook after bot initialization
     set_webhook()
