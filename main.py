@@ -107,7 +107,8 @@ app.add_handler(MessageHandler(filters.ALL, handle_homework))
 
 async def set_webhook():
     bot = Bot(TOKEN)
-    webhook_url = f"{WEBHOOK_URL}/{TOKEN}"  # Ensure this URL is HTTPS
+    webhook_url = f"{WEBHOOK_URL}/{TOKEN}"  # Ensure correct URL format
+    print(f"Webhook URL being set: {webhook_url}")  # Log for debugging
     await bot.set_webhook(url=webhook_url)
 
 
