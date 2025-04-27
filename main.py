@@ -3,7 +3,7 @@ import os
 import re
 from flask import Flask, request, jsonify
 from telegram import Bot, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from telegram.error import TelegramError
 
 # Initialize logging
@@ -23,7 +23,7 @@ if not TOKEN or not WEBHOOK_URL:
 app = Flask(__name__)
 
 # Create bot application instance
-bot = Bot(TOKEN)
+application = Application.builder().token(TOKEN).build()
 
 # List of suspicious words/phrases that often appear in spam
 SPAM_KEYWORDS = [
@@ -51,7 +51,8 @@ def webhook():
         logging.debug(f"Received update: {update}")
 
         # Process the update with the bot
-        bot.process_new_updates([Update.de_json(update, bot)])
+        update_obj = Update.de_json(update, application.bot)
+        application.process_update(update_obj)
 
         return jsonify({"status": "ok"}), 200
 
@@ -60,15 +61,15 @@ def webhook():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # Optional command: /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context):
     await update.message.reply_text("Bot is online and ready to forward homework!")
 
 # Register Handlers
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.ALL, handle_homework))
+application.add_handler(CommandHandler("start", start))
+application.add_handler(MessageHandler(filters.ALL, handle_homework))
 
 # Function to handle homework messages
-async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_homework(update: Update, context):
     try:
         message = update.message
 
@@ -127,4 +128,6 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == "__main__":
+    # Set webhook and start Flask server
+    application.bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
     app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
