@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Filters, ContextTypes
@@ -27,13 +28,15 @@ application = ApplicationBuilder().token(TOKEN).build()
 # Function to detect spam in messages
 def is_spam(text):
     SPAM_KEYWORDS = [
-    "free", "click here", "buy now", "limited time", "offer", "deal", "visit", "subscribe",
-    "discount", "special offer", "promotion", "win big", "urgent", "click to claim", "winning",
-    "vpn", "start free trial", "get free access", "limited offer"]
+        "free", "click here", "buy now", "limited time", "offer", "deal", "visit", "subscribe",
+        "discount", "special offer", "promotion", "win big", "urgent", "click to claim", "winning",
+        "vpn", "start free trial", "get free access", "limited offer"
+    ]
+    # Check if message contains any spam keywords
+    if any(word in text.lower() for word in SPAM_KEYWORDS):
+        return True
+    # Enhanced link detection
     if re.search(r"https?://(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(/[\w#!:.,?+=&%@!-/]*)?", text):
-    return True
-
-    if any(word in text.lower() for word in spam_keywords):
         return True
     return False
 
