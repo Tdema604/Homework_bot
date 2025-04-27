@@ -1,101 +1,48 @@
 import logging
-from flask import Flask, request
-from telegram import Bot, Update
-from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters, CallbackContext
-import os
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
-# Initialize Flask app
-app = Flask(__name__)
-
-# Logging setup for better traceability
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', handlers=[logging.FileHandler('bot.log'), logging.StreamHandler()])
+# Set up logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Your bot's token and other necessary configuration
-TOKEN = os.getenv("TOKEN")
-SOURCE_GROUP_ID = os.getenv("SOURCE_GROUP_ID")
-TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
-ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
+# Define the bot token and other variables
+TOKEN = "your-telegram-bot-token"
+SOURCE_GROUP_ID = "your-student-group-id"
+TARGET_CHAT_ID = "your-parent-group-id"
+ADMIN_CHAT_ID = "your-admin-user-id"
 
-# Initialize the Telegram Bot
-bot = Bot(TOKEN)
+# Define command handler to start bot
+async def start(update: Update, context):
+    await update.message.reply_text('Bot is up and running!')
 
-def start(update: Update, context: CallbackContext):
-    """Respond to /start command."""
-    logger.info("Bot started.")
-    update.message.reply_text("Hello, I'm your bot for homework forwarding!")
+# Define message handler for homework-related messages
+async def homework_handler(update: Update, context):
+    message = update.message.text.lower()
+    if "homework" in message or "assignment" in message or "worksheet" in message:
+        # Forward the message to the parent group
+        await context.bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=update.message.chat_id, message_id=update.message.message_id)
 
-def forward_homework(update: Update, context: CallbackContext):
-    """Forward homework messages to the parent group."""
-    logger.info(f"Forwarding homework message from {update.message.from_user.username} to parent group.")
-    context.bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=update.message.chat_id, message_id=update.message.message_id)
+# Define message handler for spam filtering
+async def spam_filter(update: Update, context):
+    message = update.message.text.lower()
+    if "spam" in message:  # Customize the spam filter logic
+        await update.message.delete()
 
-def forward_media(update: Update, context: CallbackContext):
-    """Forward media (images, documents, PDFs, etc.) related to homework."""
-    logger.info(f"Forwarding media message from {update.message.from_user.username} to parent group.")
-    media = None
-    if update.message.photo:
-        # Forward the first photo
-        media = update.message.photo[-1].file_id
-    elif update.message.document:
-        # Forward the document (could be PDF, Word, etc.)
-        media = update.message.document.file_id
+# Main function to set up the bot
+async def main():
+    # Initialize the bot and application
+    application = Application.builder().token(TOKEN).build()
 
-    if media:
-        context.bot.send_document(chat_id=TARGET_CHAT_ID, document=media, caption=update.message.caption)
+    # Set up handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, homework_handler))
+    application.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, spam_filter))
 
-def filter_homework(update: Update, context: CallbackContext):
-    """Filter homework-related messages based on keywords."""
-    message_text = update.message.text.lower()
-    homework_keywords = ["homework", "assignment", "worksheet", "pdf", "word document", "study material"]
-
-    # Check if the message contains homework keywords
-    if any(keyword in message_text for keyword in homework_keywords):
-        # Forward text messages if they contain homework-related keywords
-        forward_homework(update, context)
-        
-        # Check and forward any media (images, documents, PDFs, etc.)
-        forward_media(update, context)
-    else:
-        # If it's not a homework message, delete the message
-        update.message.delete()
-        logger.info(f"Deleted non-homework message from {update.message.from_user.username}")
-
-# Webhook route to handle incoming updates from Telegram
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    """Webhook handler for receiving updates from Telegram."""
-    json_str = request.get_data().decode('UTF-8')
-    update = Update.de_json(json_str, bot)
-    dispatcher.process_update(update)
-    return 'ok'
-
-# Set webhook when bot is deployed
-def set_webhook():
-    """Set up the webhook with your Render URL."""
-    webhook_url = os.getenv("WEBHOOK_URL")  # Ensure you configure this in Render's dashboard
-    bot.set_webhook(url=webhook_url + "/webhook")
-    logger.info(f"Webhook set to {webhook_url}/webhook")
-
-def main():
-    """Main entry point for the bot."""
-    global dispatcher
-
-    # Setup the dispatcher
-    dispatcher = Dispatcher(bot, None)
-
-    # Command Handlers
-    dispatcher.add_handler(CommandHandler("start", start))
-
-    # Filter homework-related messages and forward them
-    dispatcher.add_handler(MessageHandler(Filters.text, filter_homework))
-    dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, filter_homework))
-
-    # Set up webhook after bot initialization
-    set_webhook()
+    # Start the bot
+    await application.run_polling()
 
 if __name__ == '__main__':
-    main()
-
-    # Run the Flask app with Gunicorn (for production)
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    import asyncio
+    asyncio.run(main())
