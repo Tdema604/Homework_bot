@@ -4,8 +4,8 @@ services:
     env: python
     plan: free
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn main:app"
-    envVars:
+    startCommand: "python main.py"
+       envVars:
       - key: TOKEN
         value:7780579160:AAGTzhX0Y5l6-R17gxEIjj8IsP61XKBIcts
       - key: ADMIN_CHAT_ID
