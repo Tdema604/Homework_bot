@@ -13,18 +13,17 @@ logging.basicConfig(level=logging.INFO)
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Make sure to set this in Render's environment variables
 
 # Safety check
 if not TOKEN or not WEBHOOK_URL:
     raise ValueError("TELEGRAM_BOT_TOKEN or WEBHOOK_URL missing in environment variables!")
 
-# Initialize Flask app
+# Create Flask app instance
 app = Flask(__name__)
 
 # Create bot application instance
 bot = Bot(TOKEN)
-application = ApplicationBuilder().token(TOKEN).build()
 
 # List of suspicious words/phrases that often appear in spam
 SPAM_KEYWORDS = [
@@ -44,7 +43,31 @@ def is_spam(text):
     
     return False
 
-# Function to handle homework forwarding
+# Webhook route to receive updates from Telegram
+@app.route(f'/{TOKEN}', methods=['POST'])
+def webhook():
+    try:
+        update = request.get_json()  # Get the incoming update
+        logging.debug(f"Received update: {update}")
+
+        # Process the update with the bot
+        bot.process_new_updates([Update.de_json(update, bot)])
+
+        return jsonify({"status": "ok"}), 200
+
+    except Exception as e:
+        logging.error(f"Error processing update: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# Optional command: /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Bot is online and ready to forward homework!")
+
+# Register Handlers
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.ALL, handle_homework))
+
+# Function to handle homework messages
 async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = update.message
@@ -102,30 +125,6 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=f"⚠️ General error: {e}"
         )
 
-# Optional command: /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Bot is online and ready to forward homework!")
-
-# Register Handlers
-application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.ALL, handle_homework))
-
-# Set webhook route for Flask
-@app.route(f'/{TOKEN}', methods=['POST'])
-def webhook():
-    update = request.get_json()  # Get the incoming update from Telegram
-    application.process_new_updates([Update.de_json(update, bot)])  # Process the update with python-telegram-bot
-    return jsonify({"status": "ok"}), 200
-
-# Set Webhook
-def set_webhook():
-    url = f"https://homework-bot-wxi3.onrender.com/{TOKEN}"
-    response = bot.set_webhook(url)
-    if response:
-        logging.info(f"Webhook set successfully at {url}")
-    else:
-        logging.error("Failed to set webhook.")
 
 if __name__ == "__main__":
-    set_webhook()  # Set the webhook
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))  # Start Flask app
+    app.run(debug=True, host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
