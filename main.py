@@ -26,7 +26,11 @@ application = ApplicationBuilder().token(TOKEN).build()
 
 # Function to detect spam in messages
 def is_spam(text):
-    spam_keywords = ["free", "click here", "buy now", "limited time", "offer", "deal"]
+    SPAM_KEYWORDS = [
+    "free", "click here", "buy now", "limited time", "offer", "deal", "visit", "subscribe",
+    "discount", "special offer", "promotion", "win big", "urgent", "click to claim", "winning",
+    "vpn", "start free trial", "get free access", "limited offer"
+]
     if any(word in text.lower() for word in spam_keywords):
         return True
     return False
