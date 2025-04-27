@@ -18,6 +18,7 @@ print("Bot Token:", TOKEN)
 print("Admin Chat ID:", ADMIN_CHAT_ID)
 print("Target Chat ID:", TARGET_CHAT_ID)
 
+print(f"Loaded BOT TOKEN: {TOKEN}")
 
 # Define list of spam words (can add more later)
 SPAM_WORDS = ['buy now', 'free', 'click here', 'subscribe', 'promotion', 'offer']
