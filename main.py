@@ -126,7 +126,7 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"⚠️ Could not find user @{username} in the chat.")
 
-# Register the command handler without `pass_args`
+# Register the command handler without 'pass_args'
 application.add_handler(CommandHandler("ban", ban))  # No need for 'pass_args'
 
 
