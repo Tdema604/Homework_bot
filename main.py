@@ -88,6 +88,36 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Bot is live and ready to forward homework!")
 
+# /ban command (new feature)
+async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Check if the user is admin
+    if update.message.from_user.id != int(ADMIN_CHAT_ID):
+        await update.message.reply_text("⚠️ You are not authorized to use this command.")
+        return
+
+    # Get the username to ban
+    if len(context.args) != 1:
+        await update.message.reply_text("⚠️ Please provide the username to ban, e.g., /ban @username")
+        return
+    
+    username = context.args[0].lstrip('@')
+    
+    # Try to find the user by username
+    user = None
+    for member in await update.effective_chat.get_members():
+        if member.user.username == username:
+            user = member
+            break
+
+    if user:
+        try:
+            await context.bot.kick_chat_member(update.effective_chat.id, user.user.id)
+            await update.message.reply_text(f"✅ {username} has been banned successfully.")
+        except Exception as e:
+            await update.message.reply_text(f"⚠️ Failed to ban {username}: {e}")
+    else:
+        await update.message.reply_text(f"⚠️ Could not find user @{username} in the chat.")
+
 # Flask Home route
 @app.route("/")
 def home():
@@ -105,6 +135,11 @@ def webhook():
 async def set_webhook():
     bot = application.bot
     await bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
+
+# Register handlers
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("ban", ban, pass_args=True))  # Passes arguments to /ban
+application.add_handler(MessageHandler(filters.ALL, handle_homework))
 
 # Start app
 if __name__ == "__main__":
