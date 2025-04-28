@@ -5,23 +5,19 @@ from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Filters, ContextTypes
 from telegram.error import TelegramError
+import time
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# Define a simple home route (this is where the 404 was coming from)
-@app.route("/")
-def home():
-    return "✅ Bot is live and healthy!", 200
-
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
-# Get environment variables (make sure these are set in Render's environment variables)
+# Get environment variables
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # This should be your Render webhook URL
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 # Safety check
 if not TOKEN or not WEBHOOK_URL:
@@ -29,6 +25,9 @@ if not TOKEN or not WEBHOOK_URL:
 
 # Initialize the bot application
 application = ApplicationBuilder().token(TOKEN).build()
+
+# Global dictionary to store users' last message time (for rate limiting)
+user_last_message_time = {}
 
 # Function to detect spam in messages
 def is_spam(text):
@@ -42,6 +41,23 @@ def is_spam(text):
         return True
     if any(word in text.lower() for word in SPAM_KEYWORDS):
         return True
+    return False
+
+# Function to detect repeated messages (emojis or identical text)
+def is_repeated_text(message):
+    # Example of detecting too many emojis or repeated words in the message
+    if len(set(message.split())) < len(message.split()) / 2:
+        return True
+    return False
+
+# Rate limiting function to prevent message spam from users
+def is_spammer(user_id):
+    current_time = time.time()
+    if user_id in user_last_message_time:
+        time_diff = current_time - user_last_message_time[user_id]
+        if time_diff < 5:  # Block users who send messages faster than 5 seconds
+            return True
+    user_last_message_time[user_id] = current_time
     return False
 
 # Function to handle homework messages
@@ -63,6 +79,24 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=ADMIN_CHAT_ID,
                 text=f"🚨 Spam message deleted: {message.text[:100]}"
+            )
+            return
+
+        # Check for repeated messages (e.g., emojis or duplicate content)
+        if message.text and is_repeated_text(message.text):
+            await message.delete()
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text=f"🚨 Repeated/spam message deleted: {message.text[:100]}"
+            )
+            return
+
+        # Check for rate limiting (messages sent too frequently)
+        if is_spammer(update.message.from_user.id):
+            await message.delete()
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text=f"🚨 Spammer detected and message deleted: {message.text[:100]}"
             )
             return
 
