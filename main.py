@@ -150,7 +150,7 @@ async def set_webhook():
 
 # Register handlers
 application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("ban", ban, pass_args=True))  # Passes arguments to /ban
+application.add_handler(CommandHandler("ban", ban))  # No need for 'pass_args'
 application.add_handler(MessageHandler(filters.ALL, handle_homework))
 
 # Start app
