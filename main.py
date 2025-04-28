@@ -1,23 +1,28 @@
+import logging
 import os
 import re
-import logging
 from flask import Flask, request, jsonify
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Filters, ContextTypes
 from telegram.error import TelegramError
 
 # Initialize Flask app
 app = Flask(__name__)
 
+# Define a simple home route (this is where the 404 was coming from)
+@app.route("/")
+def home():
+    return "✅ Bot is live and healthy!", 200
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
-# Get environment variables
+# Get environment variables (make sure these are set in Render's environment variables)
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-SOURCE_CHAT_ID = os.getenv("SOURCE_CHAT_ID")  # 💥 Added trusted source group ID!
+SOURCE_CHAT_ID = os.getenv("SOURCE_CHAT_ID")  # Source chat ID (trusted groups)
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # This should be your Render webhook URL
 
 # Safety check
 if not TOKEN or not WEBHOOK_URL or not SOURCE_CHAT_ID:
@@ -26,39 +31,43 @@ if not TOKEN or not WEBHOOK_URL or not SOURCE_CHAT_ID:
 # Initialize the bot application
 application = ApplicationBuilder().token(TOKEN).build()
 
-# Define a simple home route
-@app.route("/")
-def home():
-    return "✅ Bot is live and healthy!", 200
-
-# Function to detect spam messages
+# Function to detect spam in messages
 def is_spam(text):
     SPAM_KEYWORDS = [
         "free", "click here", "buy now", "limited time", "offer", "deal", "visit", "subscribe",
         "discount", "special offer", "promotion", "win big", "urgent", "click to claim", "winning",
         "vpn", "start free trial", "get free access", "limited offer"
     ]
+    # Detect URLs and common spam words
     if re.search(r"https?://(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(/[\w#!:.,?+=&%@!-/]*)?", text):
         return True
     if any(word in text.lower() for word in SPAM_KEYWORDS):
         return True
     return False
 
-# Homework handler
+# Function to handle homework messages
 async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = update.message
 
-        # Validate source chat
-        if str(update.effective_chat.id) != SOURCE_CHAT_ID:
-            logging.warning(f"Unauthorized message from {update.effective_chat.id}")
+        # Check if the message is from the trusted SOURCE_CHAT_ID
+        if update.effective_chat.id != int(SOURCE_CHAT_ID):
+            await message.delete()
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text="⚠️ Message rejected. Not from a trusted group."
+            )
             return
 
+        # Check if the message is not empty
         if not message:
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ Error: Empty message received.")
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text="⚠️ Error: Received an invalid or empty message."
+            )
             return
 
-        # Check for spam
+        # Check if the message is spam
         if message.text and is_spam(message.text):
             await message.delete()
             await context.bot.send_message(
@@ -67,7 +76,7 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # Forward homework or educational materials
+        # If it's homework (message containing "homework" or a file), forward it
         if message.text and "homework" in message.text.lower() or message.document or message.photo or message.video:
             await context.bot.forward_message(
                 chat_id=TARGET_CHAT_ID,
@@ -81,41 +90,46 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await context.bot.send_message(
                 chat_id=ADMIN_CHAT_ID,
-                text="⚠️ Received a non-homework message."
+                text="⚠️ Invalid message type received. Please send a homework message."
             )
 
     except TelegramError as e:
         logging.error(f"Telegram Error: {e}")
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Telegram error: {e}")
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"⚠️ Error occurred while processing a message: {e}"
+        )
     except Exception as e:
         logging.error(f"General Error: {e}")
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ General error: {e}")
+        await context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"⚠️ General error: {e}"
+        )
 
 # Optional /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Bot is active and ready to forward homework!")
+    await update.message.reply_text("Bot is online and ready to forward homework!")
 
 # Register handlers
 application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.ALL, handle_homework))
+application.add_handler(MessageHandler(Filters.ALL, handle_homework))
 
-# Webhook route
-@app.route(f"/{TOKEN}", methods=["POST"])
+# Set Webhook route
+@app.route(f'/{TOKEN}', methods=['POST'])
 def webhook():
-    update = request.get_json(force=True)
-    update_obj = Update.de_json(update, application.bot)
-    application.update_queue.put_nowait(update_obj)
+    update = request.get_json()  # Get the incoming update from Telegram
+    update_obj = Update.de_json(update, application.bot)  # Convert JSON to Telegram Update object
+    application.process_update(update_obj)  # Process the update with the application
     return jsonify({"status": "ok"}), 200
 
-# Set webhook on Telegram side
+# Set webhook for the bot
 async def set_webhook():
     bot = application.bot
     webhook_url = f"{WEBHOOK_URL}/{TOKEN}"
     await bot.set_webhook(url=webhook_url)
 
-# Run app
+# Start the bot with webhook
+from waitress import serve
+
 if __name__ == "__main__":
-    import asyncio
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(set_webhook())
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+    serve(app, host="0.0.0.0", port=8080)  # Use Waitress to serve the app on Windows
