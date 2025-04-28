@@ -114,13 +114,13 @@ def webhook():
     application.update_queue.put_nowait(update)
     return jsonify({"status": "ok"}), 200
 
-# --- Setup Webhook ---
-async def setup_webhook():
-    webhook_url = f"{WEBHOOK_URL}/{TOKEN}"
-    info = await application.bot.get_webhook_info()
-    if info.url != webhook_url:
-        await application.bot.set_webhook(url=webhook_url)
-        logging.info(f"✅ Webhook set to {webhook_url}")
+# Start the bot with webhook
+if __name__ == "__main__":
+    import asyncio
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(set_webhook())  # Set the webhook
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))  # Start Flask server properly
+
 
 # --- Register Handlers ---
 application.add_handler(CommandHandler("start", start))
