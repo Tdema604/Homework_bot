@@ -104,19 +104,28 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Try to find the user by username
     user = None
-    for member in await update.effective_chat.get_members():
-        if member.user.username == username:
-            user = member
-            break
+    try:
+        # Get the list of chat members
+        members = await update.effective_chat.get_members()
+
+        # Search for the user by username
+        for member in members:
+            if member.user.username == username:
+                user = member
+                break
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ Failed to fetch chat members: {e}")
 
     if user:
         try:
+            # Ban the user from the chat
             await context.bot.kick_chat_member(update.effective_chat.id, user.user.id)
             await update.message.reply_text(f"✅ {username} has been banned successfully.")
         except Exception as e:
             await update.message.reply_text(f"⚠️ Failed to ban {username}: {e}")
     else:
         await update.message.reply_text(f"⚠️ Could not find user @{username} in the chat.")
+
 
 # Flask Home route
 @app.route("/")
