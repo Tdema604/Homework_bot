@@ -55,4 +55,67 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if not message:
-            await context.bot.send_message(chat_id=ADMIN
+            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ Error: Empty message received.")
+            return
+
+        # Check for spam
+        if message.text and is_spam(message.text):
+            await message.delete()
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text=f"🚨 Spam message deleted: {message.text[:100]}"
+            )
+            return
+
+        # Forward homework or educational materials
+        if message.text and "homework" in message.text.lower() or message.document or message.photo or message.video:
+            await context.bot.forward_message(
+                chat_id=TARGET_CHAT_ID,
+                from_chat_id=update.effective_chat.id,
+                message_id=message.message_id
+            )
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text=f"✅ Homework forwarded from {update.effective_chat.title or update.effective_chat.id}."
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text="⚠️ Received a non-homework message."
+            )
+
+    except TelegramError as e:
+        logging.error(f"Telegram Error: {e}")
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Telegram error: {e}")
+    except Exception as e:
+        logging.error(f"General Error: {e}")
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ General error: {e}")
+
+# Optional /start command
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("✅ Bot is active and ready to forward homework!")
+
+# Register handlers
+application.add_handler(CommandHandler("start", start))
+application.add_handler(MessageHandler(filters.ALL, handle_homework))
+
+# Webhook route
+@app.route(f"/{TOKEN}", methods=["POST"])
+def webhook():
+    update = request.get_json(force=True)
+    update_obj = Update.de_json(update, application.bot)
+    application.update_queue.put_nowait(update_obj)
+    return jsonify({"status": "ok"}), 200
+
+# Set webhook on Telegram side
+async def set_webhook():
+    bot = application.bot
+    webhook_url = f"{WEBHOOK_URL}/{TOKEN}"
+    await bot.set_webhook(url=webhook_url)
+
+# Run app
+if __name__ == "__main__":
+    import asyncio
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(set_webhook())
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
