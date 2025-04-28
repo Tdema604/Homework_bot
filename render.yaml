@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: telegram-homework-bot
+    name: your-bot-name
     env: python
     plan: free
     branch: main
     buildCommand: pip install -r requirements.txt
-    startCommand: python main.py
+    startCommand: gunicorn main:app
  envVars:
   - key: TELEGRAM_BOT_TOKEN
     value: 7780579160:AAGTzhX0Y5l6-R17gxEIjj8IsP61XKBIcts
