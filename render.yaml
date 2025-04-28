@@ -4,12 +4,12 @@ services:
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn main:app
-  envVars:
-  - key: TELEGRAM_BOT_TOKEN
-    value: 7780579160:AAGTzhX0Y5l6-R17gxEIjj8IsP61XKBIcts
-  - key: ADMIN_CHAT_ID
-    value: 740241927
-  - key: TARGET_CHAT_ID
-    value: -1002287165008
-  - key: WEBHOOK_URL
-    value: https://homework-bot-wxi3.onrender.com  # Make sure this is HTTPS
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_CHAT_ID
+        sync: false
+      - key: TARGET_CHAT_ID
+        sync: false
+      - key: WEBHOOK_URL
+        sync: false
