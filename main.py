@@ -130,7 +130,6 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
 application.add_handler(CommandHandler("ban", ban))  # No need for 'pass_args'
 
 
-
 # Flask Home route
 @app.route("/")
 def home():
