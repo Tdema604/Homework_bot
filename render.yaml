@@ -1,12 +1,10 @@
 services:
   - type: web
-    name: your-bot-name
+    name: homework-forwarder-bot
     env: python
-    plan: free
-    branch: main
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn main:app
- envVars:
+  envVars:
   - key: TELEGRAM_BOT_TOKEN
     value: 7780579160:AAGTzhX0Y5l6-R17gxEIjj8IsP61XKBIcts
   - key: ADMIN_CHAT_ID
