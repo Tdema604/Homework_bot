@@ -88,7 +88,7 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("✅ Bot is live and ready to forward homework!")
 
-# /ban command (new feature)
+# /ban command (corrected)
 async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check if the user is admin
     if update.message.from_user.id != int(ADMIN_CHAT_ID):
