@@ -2,8 +2,9 @@ import logging
 import os
 import re
 from flask import Flask, request, jsonify
-from telegram import Update, ext
+from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes
+from telegram.ext import filters  # Corrected import for filters
 from telegram.error import TelegramError
 
 # Initialize Flask app
@@ -112,7 +113,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Register handlers
 application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(ext.Filters.ALL, handle_homework))
+application.add_handler(MessageHandler(filters.ALL, handle_homework))  # Updated filters import
 
 # Set Webhook route
 @app.route(f'/{TOKEN}', methods=['POST'])
@@ -133,3 +134,4 @@ from waitress import serve
 
 if __name__ == "__main__":
     serve(app, host="0.0.0.0", port=8080)  # Use Waitress to serve the app on Windows
+
