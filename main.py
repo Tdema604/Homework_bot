@@ -134,11 +134,12 @@ def webhook():
 # Set webhook for the bot
 async def set_webhook():
     bot = application.bot
-    webhook_url = f"{WEBHOOK_URL}/{TOKEN}"
+    webhook_url = f"{WEBHOOK_URL}/{TOKEN}"  # Make sure this matches the URL where you deployed
     await bot.set_webhook(url=webhook_url)
-
-# Start the bot with webhook
-from waitress import serve
-
 if __name__ == "__main__":
+    # Set webhook to ensure the bot receives updates
+    import asyncio
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(set_webhook())
+
     serve(app, host="0.0.0.0", port=8080)  # Use Waitress to serve the app on Windows
