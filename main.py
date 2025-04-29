@@ -68,20 +68,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👋 Bot is online and ready to forward homework!")
 
 # Notify admin when bot deploys
+from datetime import datetime
+from pytz import timezone
+
 async def notify_admin_startup():
     try:
-     from pytz import timezone
-bt_time = datetime.now(timezone("Asia/Thimphu")).strftime("%Y-%m-%d %I:%M:%S %p (BTT)")
-        status_url = f"{WEBHOOK_URL}/{SECRET_PATH}"
+        bt_time = datetime.now(timezone("Asia/Thimphu")).strftime("%Y-%m-%d %I:%M:%S %p (BTT)")
+        status_url = f"https://{WEBHOOK_URL.replace('https://', '').split('/')[0]}"
         await application.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
-            text=f"✅ Homework Bot deployed and active on Render!\n🕒 {bt_time}\n🌐 [Check Uptime]({status_url})"
-
-            ),
+            text=f"✅ Homework Bot deployed and active on Render!\n🕒 {bt_time}\n🌐 [Check Uptime]({status_url})",
             parse_mode="Markdown"
         )
     except Exception as e:
         logging.error(f"Failed to notify admin on startup: {e}")
+
 
 # Register handlers
 application.add_handler(CommandHandler("start", start))
