@@ -4,4 +4,4 @@ waitress==3.0.2
 python-dotenv==1.0.0
 pytz
 werkzeug==2.3.7
-
+be4fba6 (Deploy: Modular bot with auto-generated SECRET_PATH)
