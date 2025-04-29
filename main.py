@@ -70,14 +70,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Notify admin when bot deploys
 async def notify_admin_startup():
     try:
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+     from pytz import timezone
+bt_time = datetime.now(timezone("Asia/Thimphu")).strftime("%Y-%m-%d %I:%M:%S %p (BTT)")
         status_url = f"{WEBHOOK_URL}/{SECRET_PATH}"
         await application.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
-            text=(
-                f"✅ Homework Bot deployed and active on Render!\n"
-                f"🕒 {timestamp} (UTC)\n"
-                f"🌐 [Check Uptime]({status_url})"
+            text=f"✅ Homework Bot deployed and active on Render!\n🕒 {bt_time}\n🌐 [Check Uptime]({status_url})"
+
             ),
             parse_mode="Markdown"
         )
@@ -104,9 +103,13 @@ async def set_webhook():
     logging.info(f"Webhook set to: {secure_url}")
 
 # Start everything
+async def setup():
+    await set_webhook()
+    await notify_admin_startup()
+
 if __name__ == "__main__":
-    asyncio.run(set_webhook())
-    asyncio.run(notify_admin_startup())
+    asyncio.run(setup())
 
     from waitress import serve
     serve(app, host="0.0.0.0", port=8080)
+
