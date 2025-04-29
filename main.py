@@ -80,15 +80,17 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # If it's homework (message containing "homework" or a file), forward it
         if message.text and "homework" in message.text.lower() or message.document or message.photo or message.video:
-            await context.bot.forward_message(
-                chat_id=TARGET_CHAT_ID,
-                from_chat_id=update.effective_chat.id,
-                message_id=message.message_id
-            )
-            await context.bot.send_message(
-                chat_id=ADMIN_CHAT_ID,
-                text=f"✅ Homework forwarded from {update.effective_chat.title or update.effective_chat.id}."
-            )
+            # Only forward if it hasn't been forwarded already
+            if not message.forward_from:
+                await context.bot.forward_message(
+                    chat_id=TARGET_CHAT_ID,
+                    from_chat_id=update.effective_chat.id,
+                    message_id=message.message_id
+                )
+                await context.bot.send_message(
+                    chat_id=ADMIN_CHAT_ID,
+                    text=f"✅ Homework forwarded from {update.effective_chat.title or update.effective_chat.id}."
+                )
         else:
             await context.bot.send_message(
                 chat_id=ADMIN_CHAT_ID,
@@ -107,6 +109,7 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat_id=ADMIN_CHAT_ID,
             text=f"⚠️ General error: {e}"
         )
+
 
 # Optional /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
