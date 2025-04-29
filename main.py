@@ -2,95 +2,111 @@ import os
 import logging
 import hashlib
 import asyncio
+from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.error import TelegramError
 
-# Load environment variables
+# Load .env variables
 load_dotenv()
 
+# Fetch required environment variables
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
-SOURCE_CHAT_ID = os.getenv("SOURCE_CHAT_ID")
 TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
+SOURCE_CHAT_ID = os.getenv("SOURCE_CHAT_ID")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
-if not all([TOKEN, ADMIN_CHAT_ID, SOURCE_CHAT_ID, TARGET_CHAT_ID, WEBHOOK_URL]):
-    raise ValueError("Missing required environment variables. Please check .env or Render settings.")
+if not TOKEN or not WEBHOOK_URL or not SOURCE_CHAT_ID:
+    raise ValueError("❌ One or more required environment variables are missing. Check your .env file.")
 
 # Generate secure webhook path
 SECRET_PATH = hashlib.sha256(TOKEN.encode()).hexdigest()
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
-
-# Initialize Flask and Telegram bot
+# Initialize Flask and Telegram Application
 app = Flask(__name__)
 application = ApplicationBuilder().token(TOKEN).build()
 
-# Health check for Render
-@app.route('/')
-def health():
-    return "Bot is running", 200
+# Enable logging
+logging.basicConfig(level=logging.INFO)
 
-# Webhook endpoint
-@app.route(f'/{SECRET_PATH}', methods=['POST'])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), application.bot)
-    asyncio.run(application.process_update(update))
-    return jsonify({"status": "ok"})
-
-# Spam filter
+# Anti-spam filter
 def is_spam(text):
-    spam_keywords = [
-        "free", "click here", "buy now", "vpn", "offer", "subscribe", "promotion", "deal", "trial"
+    SPAM_KEYWORDS = [
+        "free", "click here", "buy now", "limited time", "offer", "deal", "visit", "subscribe",
+        "discount", "promotion", "win big", "urgent", "vpn", "trial", "access", "claim", "winning"
     ]
-    return any(word in text.lower() for word in spam_keywords)
+    return any(word in text.lower() for word in SPAM_KEYWORDS)
 
-# Command: /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hi! I'm alive and ready to forward homework!")
-
-# Main message handler
+# Message handler
 async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     if not message:
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ Empty message received.")
         return
 
-    # Only accept from student group
     if update.effective_chat.id != int(SOURCE_CHAT_ID):
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="❌ Rejected message. Not from source group.")
+        await message.delete()
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ Message rejected. Not from a trusted group.")
         return
 
-    # Spam filtering
     if message.text and is_spam(message.text):
         await message.delete()
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"🚫 Spam removed: {message.text[:50]}")
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"🚨 Spam deleted: {message.text[:100]}")
         return
 
-    # Forwarding logic
-    if message.text or message.document or message.photo or message.video or message.voice:
-        await context.bot.forward_message(
-            chat_id=TARGET_CHAT_ID,
-            from_chat_id=SOURCE_CHAT_ID,
-            message_id=message.message_id
-        )
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="✅ Homework forwarded.")
+    if message.text and "homework" in message.text.lower() or message.document or message.photo or message.video:
+        await context.bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=update.effective_chat.id, message_id=message.message_id)
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"✅ Homework forwarded from {update.effective_chat.title or update.effective_chat.id}")
     else:
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ Received but not forwarded. Not homework?")
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ No valid homework found.")
+
+# /start command
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("👋 Bot is online and ready to forward homework!")
+
+# Notify admin when bot deploys
+async def notify_admin_startup():
+    try:
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        status_url = f"{WEBHOOK_URL}/{SECRET_PATH}"
+        await application.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=(
+                f"✅ Homework Bot deployed and active on Render!\n"
+                f"🕒 {timestamp} (UTC)\n"
+                f"🌐 [Check Uptime]({status_url})"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logging.error(f"Failed to notify admin on startup: {e}")
 
 # Register handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(MessageHandler(filters.ALL, handle_homework))
 
-# Set webhook
-async def set_webhook():
-    await application.bot.set_webhook(url=f"{WEBHOOK_URL}/{SECRET_PATH}")
-    logging.info("Webhook has been set.")
+# Flask route to handle webhook
+@app.route(f'/{SECRET_PATH}', methods=['POST'])
+def webhook():
+    update = request.get_json()
+    update_obj = Update.de_json(update, application.bot)
+    application.process_update(update_obj)
+    return jsonify({"status": "ok"}), 200
 
-# Run the Flask app
+# Set webhook on startup
+async def set_webhook():
+    bot = application.bot
+    secure_url = f"{WEBHOOK_URL}/{SECRET_PATH}"
+    await bot.set_webhook(url=secure_url)
+    logging.info(f"Webhook set to: {secure_url}")
+
+# Start everything
 if __name__ == "__main__":
     asyncio.run(set_webhook())
+    asyncio.run(notify_admin_startup())
+
     from waitress import serve
     serve(app, host="0.0.0.0", port=8080)
