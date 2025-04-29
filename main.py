@@ -1,23 +1,31 @@
-import logging
 import os
 import re
-import hashlib
+import logging
 from flask import Flask, request, jsonify
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes
 from telegram.ext import filters
 from telegram.error import TelegramError
+from dotenv import load_dotenv
+import hashlib
 from waitress import serve
 
-# Load environment variables
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
-TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
-SOURCE_CHAT_ID = os.getenv("SOURCE_CHAT_ID")
+# Load environment variables from .env file
+load_dotenv()
+
+# Fetch all necessary variables from .env
+TOKEN = os.getenv("TOKEN")
+SOURCE_CHAT_ID = int(os.getenv("SOURCE_CHAT_ID"))
+TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
+# Validate token and webhook URL
 if not TOKEN or not WEBHOOK_URL or not SOURCE_CHAT_ID:
-    raise ValueError("Required environment variables are missing: TOKEN, WEBHOOK_URL, or SOURCE_CHAT_ID.")
+    raise ValueError("❌ One or more required environment variables are missing. Please check your .env file.")
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
 
 # Generate secure webhook path
 SECRET_PATH = hashlib.sha256(TOKEN.encode()).hexdigest()
@@ -25,9 +33,6 @@ SECRET_PATH = hashlib.sha256(TOKEN.encode()).hexdigest()
 # Initialize Flask and Telegram app
 app = Flask(__name__)
 application = ApplicationBuilder().token(TOKEN).build()
-
-# Enable logging
-logging.basicConfig(level=logging.INFO)
 
 # 🔒 Anti-spam filter
 def is_spam(text):
@@ -42,48 +47,60 @@ def is_spam(text):
         return True
     return False
 
-# ✅ Message handler
-async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        message = update.message
-        logging.info(f"📩 Incoming message: {message.text}")
+# ✅ Message handler to forward homework
+async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message
 
-        if update.effective_chat.id != int(SOURCE_CHAT_ID):
-            await message.delete()
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ Message rejected. Not from a trusted group.")
-            return
+    if not message:  # If message is empty or invalid, just return
+        return
 
-        if not message:
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ Empty message received.")
-            return
+    text_content = message.text or message.caption or ""
 
-        if message.text and is_spam(message.text):
-            await message.delete()
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"🚨 Spam deleted: {message.text[:100]}")
-            return
+    # Check if the message is from the source group
+    if message.chat.id != SOURCE_CHAT_ID:
+        await message.delete()
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ Message rejected. Not from a trusted group.")
+        return
 
-        if message.text and "homework" in message.text.lower() or message.document or message.photo or message.video:
-            await context.bot.forward_message(chat_id=TARGET_CHAT_ID, from_chat_id=update.effective_chat.id, message_id=message.message_id)
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"✅ Homework forwarded from {update.effective_chat.title or update.effective_chat.id}")
-        else:
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ No valid homework found.")
+    # Spam check
+    if is_spam(text_content):
+        await message.delete()
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"🚨 Spam detected and deleted: {text_content[:40]}...")
+        return
 
-    except TelegramError as e:
-        logging.error(f"Telegram error: {e}")
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Telegram error: {e}")
-    except Exception as e:
-        logging.error(f"General error: {e}")
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Error: {e}")
+    # Check for homework-related content
+    if "homework" in text_content.lower() or message.document or message.photo or message.video:
+        try:
+            # Forward message to the parent group
+            if message.text:
+                await context.bot.send_message(chat_id=TARGET_CHAT_ID, text=message.text)
+            elif message.photo:
+                await context.bot.send_photo(chat_id=TARGET_CHAT_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
+            elif message.document:
+                await context.bot.send_document(chat_id=TARGET_CHAT_ID, document=message.document.file_id, caption=message.caption or "")
 
-# Start command
+            # Admin notification
+            await context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text=f"✅ Homework forwarded:\n🔹 From: {message.chat.title or message.chat.id}\n🔹 Content: {text_content[:100]}..."
+            )
+
+        except TelegramError as e:
+            logging.error(f"Telegram error: {e}")
+            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Error forwarding homework: {e}")
+
+    else:
+        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ No valid homework found.")
+
+# Start command for bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👋 Bot is online and ready to forward homework!")
 
 # Register handlers
 application.add_handler(CommandHandler("start", start))
-application.add_handler(MessageHandler(filters.ALL, handle_homework))
+application.add_handler(MessageHandler(filters.ALL, forward_message))
 
-# ✅ One single webhook route using secure path
+# ✅ Webhook route
 @app.route(f'/{SECRET_PATH}', methods=['POST'])
 def webhook():
     update = request.get_json()
@@ -97,7 +114,9 @@ async def set_webhook():
     secure_url = f"{WEBHOOK_URL}/{SECRET_PATH}"
     await bot.set_webhook(url=secure_url)
 
-# Start server
+# Start Flask server and set webhook
 if __name__ == "__main__":
-    set_webhook()  # Call the webhook setup function directly
+    logging.info("🚀 Bot is running safely in Launch Mode")
     serve(app, host="0.0.0.0", port=8080)
+    # Uncomment to enable webhook
+    # asyncio.run(set_webhook())
