@@ -1,38 +1,30 @@
 # web.py
 
-import os
-import logging
-import hashlib
-from flask import Flask, request, jsonify
+from flask import Flask, request
+import asyncio
 from telegram import Update
-from bot import application  # Make sure this comes from bot.py
+from telegram.ext import Application
+from bot import application  # the Application instance from bot.py
 
-# Generate secret webhook path
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-SECRET_PATH = hashlib.sha256(TOKEN.encode()).hexdigest()
-
-# Flask app
 app = Flask(__name__)
 
-@app.route(f"/{SECRET_PATH}", methods=["POST"])
-def webhook():
-    update = request.get_json(force=True)
-    update_obj = Update.de_json(update, application.bot)
-    application.process_update(update_obj)
-    return jsonify({"status": "ok"}), 200
-
 @app.route("/", methods=["GET"])
-def index():
-    return """
-    <html>
-        <head><title>📘 Homework Forwarder Bot</title></head>
-        <body style="font-family:sans-serif;text-align:center;padding-top:50px;">
-            <h1>✅ Bot is running</h1>
-            <p>Developed with ❤️ for Meto & Lhaki</p>
-        </body>
-    </html>
-    """
+def home():
+    return "<h2>✅ Homework Forwarder Bot is Live!</h2>"
 
-def get_webhook_url():
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-    return f"{WEBHOOK_URL}/{SECRET_PATH}"
+@app.route("/<path:token>", methods=["POST"])
+def webhook(token):
+    try:
+        update = Update.de_json(request.get_json(force=True), application.bot)
+
+        async def handle():
+            await application.initialize()  # Ensure bot is fully ready
+            await application.process_update(update)
+            await application.shutdown()  # Optional clean-up
+
+        asyncio.run(handle())
+    except Exception as e:
+        print(f"Webhook error: {e}")
+        return "Error", 500
+
+    return "OK", 200
