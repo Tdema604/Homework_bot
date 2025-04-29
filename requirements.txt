@@ -2,3 +2,4 @@ flask==2.2.3
 werkzeug==2.2.3
 python-telegram-bot==20.0
 waitress==3.0.2
+python-dotenv==1.0.1
