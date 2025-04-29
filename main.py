@@ -99,4 +99,5 @@ async def set_webhook():
 
 # Start server
 if __name__ == "__main__":
+    set_webhook()  # Call the webhook setup function directly
     serve(app, host="0.0.0.0", port=8080)
