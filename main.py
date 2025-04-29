@@ -2,6 +2,7 @@ import os
 import logging
 import hashlib
 import asyncio
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
@@ -86,6 +87,7 @@ async def notify_admin_startup():
 
 # Register handlers
 application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("status", status))
 application.add_handler(MessageHandler(filters.ALL, handle_homework))
 
 # Flask route to handle webhook
@@ -95,7 +97,9 @@ def webhook():
     update_obj = Update.de_json(update, application.bot)
     application.process_update(update_obj)
     return jsonify({"status": "ok"}), 200
-
+@app.route("/", methods=["GET"])
+def index():
+    return "✅ Homework Bot is running!"
 # Set webhook on startup
 async def set_webhook():
     bot = application.bot
@@ -113,4 +117,14 @@ if __name__ == "__main__":
 
     from waitress import serve
     serve(app, host="0.0.0.0", port=8080)
+    start_time = time.time()
+
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uptime_seconds = int(time.time() - start_time)
+    hours, remainder = divmod(uptime_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    uptime = f"{hours}h {minutes}m {seconds}s"
+
+    await update.message.reply_text(f"✅ Bot is online.\n⏱ Uptime: {uptime}")
+
 
