@@ -78,9 +78,13 @@ async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
+        # If the message is a forwarded message by the bot itself, do not process it
+        if message.forward_from and message.forward_from.id == context.bot.id:
+            return
+
         # If it's homework (message containing "homework" or a file), forward it
         if message.text and "homework" in message.text.lower() or message.document or message.photo or message.video:
-            # Only forward if it hasn't been forwarded already
+            # Only forward if it hasn't been forwarded already by the bot
             if not message.forward_from:
                 await context.bot.forward_message(
                     chat_id=TARGET_CHAT_ID,
