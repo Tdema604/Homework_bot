@@ -11,6 +11,17 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from telegram.error import TelegramError
 from waitress import serve
+from web import app
+from bot import application, set_webhook, notify_admin_startup
+if __name__ == "__main__":
+    async def setup():
+        await set_webhook()
+        await notify_admin_startup()
+    asyncio.run(setup())
+
+    # Start Flask server
+    serve(app, host="0.0.0.0", port=8080)
+
 
 # Load .env variables
 load_dotenv()
