@@ -54,15 +54,14 @@ async def main():
     await bot.set_webhook(url=WEBHOOK_URL)
     logger.info("🚀 Webhook set successfully.")
 
-    # Run the app directly without asyncio.run()
+    # Run the app directly using aiohttp's built-in event loop management
     logger.info("🌐 Serving via aiohttp...")
     port = int(os.getenv("PORT", 8080))  # Default to 8080 if PORT is not set
-    await web.run_app(app, host="0.0.0.0", port=port)
+    return web.run_app(app, host="0.0.0.0", port=port)
 
 if __name__ == '__main__':
     try:
-        # Use asyncio.run() to run the main async function correctly
-        import asyncio
-        asyncio.run(main())  # Use asyncio.run() to run the main coroutine
+        # Instead of asyncio.run, use web.run_app which handles the event loop internally
+        web.run_app(main())  # Pass the main async function to web.run_app
     except Exception as e:
         logger.error(f"Startup failed: {e}")
