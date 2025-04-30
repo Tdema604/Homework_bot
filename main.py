@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import os
 import time
 import logging
@@ -20,7 +19,7 @@ from telegram.ext import (
 load_dotenv()
 
 # Bot credentials and chat IDs
-=======
+
 ﻿import os
 from dotenv import load_dotenv
 from telegram import Bot, Update
@@ -36,13 +35,11 @@ print("TARGET_CHAT_ID:", os.getenv("TARGET_CHAT_ID"))
 print("ADMIN_CHAT_ID:", os.getenv("ADMIN_CHAT_ID"))
 
 # Fetch and validate environment variables
->>>>>>> be4fba6 (Deploy: Modular bot with auto-generated SECRET_PATH)
 TOKEN = os.getenv("TOKEN")
 SOURCE_CHAT_ID = os.getenv("SOURCE_CHAT_ID")
 TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
 ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
 
-<<<<<<< HEAD
 # Optional Debug
 DEBUG_MODE = False
 
@@ -140,7 +137,7 @@ if __name__ == "__main__":
 
     logger.info("🌐 Serving via Waitress...")
     serve(app, host="0.0.0.0", port=8080)
-=======
+
 if not all([TOKEN, SOURCE_CHAT_ID, TARGET_CHAT_ID, ADMIN_CHAT_ID]):
     raise ValueError("❌ One or more required environment variables are missing. Please check your .env file.")
 
@@ -200,4 +197,4 @@ app.add_handler(MessageHandler(filters.ALL, forward_message))
 # Run the bot
 print("🚀 Bot is running safely in Launch Mode")
 app.run_polling()
->>>>>>> be4fba6 (Deploy: Modular bot with auto-generated SECRET_PATH)
+
