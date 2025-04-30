@@ -56,11 +56,12 @@ async def main():
     serve(application, host="0.0.0.0", port=8080)
 
 # Run startup
-if __name__ == "__main__":
-    import asyncio
-
+if __name__ == '__main__':
     try:
-        logger.info("✅ Homework Bot is running!")
-        asyncio.run(main())
+        from web import setup_routes
+        app = web.Application()
+        setup_routes(app, bot, application)
+        web.run_app(app, port=PORT)
     except Exception as e:
         logger.error(f"Startup failed: {e}")
+
