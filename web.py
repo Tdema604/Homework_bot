@@ -2,7 +2,6 @@ import logging
 from aiohttp import web
 from telegram import Bot
 from telegram.ext import Application
-from utils import is_spam, forward_homework, notify_admin
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +18,13 @@ def setup_routes(app, bot=None, application=None):
         application.process_update(update)
         return web.Response()
 
+    # Root route (to prevent 404 errors for root endpoint)
+    async def root(request):
+        return web.Response(text="Welcome to the Homework Bot! Use /health for status.")
+
     # Add routes to the aiohttp app
+    app.router.add_get("/", root)  # Add root handler
     app.router.add_get("/health", health)  # Health check
     app.router.add_post("/webhook", webhook)  # Webhook listener
 
     logger.info("🔌 Web routes set up successfully.")
-
