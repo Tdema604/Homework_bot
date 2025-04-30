@@ -11,57 +11,35 @@ from telegram import Bot, Update
 from telegram.ext import (
     Application,
     MessageHandler,
-    ContextTypes,
     filters,
+    ContextTypes
 )
 
 # Load environment variables
 load_dotenv()
 
-# Bot credentials and chat IDs
-
-﻿import os
-from dotenv import load_dotenv
-from telegram import Bot, Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
-import logging
-
-# Load environment variables from .env file
-load_dotenv()
-
-print("TOKEN:", os.getenv("TOKEN"))
-print("SOURCE_CHAT_ID:", os.getenv("SOURCE_CHAT_ID"))
-print("TARGET_CHAT_ID:", os.getenv("TARGET_CHAT_ID"))
-print("ADMIN_CHAT_ID:", os.getenv("ADMIN_CHAT_ID"))
-
-# Fetch and validate environment variables
 TOKEN = os.getenv("TOKEN")
-SOURCE_CHAT_ID = os.getenv("SOURCE_CHAT_ID")
-TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
-ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
+SOURCE_CHAT_ID = int(os.getenv("SOURCE_CHAT_ID"))
+TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
 
-# Optional Debug
-DEBUG_MODE = False
+# Keywords for detecting homework
+KEYWORDS = ["homework", "assignment", "worksheet"]
 
-# Setup logging
+# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Bot & App Setup
+bot = Bot(token=TOKEN)
+telegram_app = Application.builder().token(TOKEN).build()
 
 # Track uptime
 start_time = time.time()
 
-# Flask app for webhook and health
+# Flask app for webhook + health
 app = Flask(__name__)
 
-# Telegram bot and app
-bot = Bot(token=TOKEN)
-telegram_app = Application.builder().token(TOKEN).build()
-
-# Keywords for homework detection
-KEYWORDS = ["homework", "assignment", "worksheet"]
-
-
-# Health check endpoint
 @app.route("/health", methods=["GET"])
 def health():
     uptime = time.time() - start_time
@@ -71,8 +49,6 @@ def health():
         "timestamp": datetime.utcnow().isoformat() + "Z"
     }
 
-
-# Webhook route to receive Telegram updates
 @app.route("/webhook", methods=["POST"])
 def webhook():
     try:
@@ -83,118 +59,48 @@ def webhook():
         logger.error(f"Webhook error: {e}")
         return "Error", 500
 
-
-# Message forwarding logic
+# Forwarding Logic
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
-    if not message:
-        return
-
-    if message.chat.id == SOURCE_GROUP_ID:
-        text_content = message.text or message.caption or ""
-        text_lower = text_content.lower()
-
-        if any(keyword in text_lower for keyword in KEYWORDS):
-            try:
-                if message.text:
-                    await bot.send_message(chat_id=TARGET_CHAT_ID, text=message.text)
-                elif message.photo:
-                    await bot.send_photo(chat_id=TARGET_CHAT_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
-                elif message.document:
-                    await bot.send_document(chat_id=TARGET_CHAT_ID, document=message.document.file_id, caption=message.caption or "")
-                
-                logger.info(f"✅ Forwarded: {text_content[:30]}...")
-
-                if ADMIN_CHAT_ID:
-                    await bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"✅ Forwarded homework: {text_content[:30]}...")
-
-            except Exception as e:
-                logger.error(f"❌ Error forwarding: {e}")
-                if ADMIN_CHAT_ID:
-                    await bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Error: {e}")
-        else:
-            logger.info(f"ℹ️ Non-homework message skipped: {text_content[:30]}...")
-
-
-# Register handler
-telegram_app.add_handler(MessageHandler(filters.ALL, forward_message))
-
-
-# Startup actions (run once on boot)
-async def startup():
-    webhook_url = f"https://your-app-name.onrender.com/webhook"  # Replace with your actual Render app URL
-    await bot.set_webhook(url=webhook_url)
-    logger.info("🚀 Webhook set successfully.")
-    if ADMIN_CHAT_ID:
-        await bot.send_message(chat_id=ADMIN_CHAT_ID, text="✅ Bot has started via webhook!")
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(startup())
-    except RuntimeError as e:
-        logger.error(f"Startup failed: {e}")
-
-    logger.info("🌐 Serving via Waitress...")
-    serve(app, host="0.0.0.0", port=8080)
-
-if not all([TOKEN, SOURCE_CHAT_ID, TARGET_CHAT_ID, ADMIN_CHAT_ID]):
-    raise ValueError("❌ One or more required environment variables are missing. Please check your .env file.")
-
-SOURCE_CHAT_ID = int(SOURCE_CHAT_ID)
-TARGET_CHAT_ID = int(TARGET_CHAT_ID)
-ADMIN_CHAT_ID = int(ADMIN_CHAT_ID)
-
-# Logging for easier debugging
-logging.basicConfig(level=logging.INFO)
-
-# Initialize bot instance
-bot = Bot(token=TOKEN)
-
-# Keywords that determine if a message is homework
-KEYWORDS = ["homework", "assignment", "worksheet"]
-
-# Message handler function
-async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.message
-
-    if not message:
-        return
-
-    # Only process messages from the source group
-    if message.chat.id != SOURCE_CHAT_ID:
+    if not message or message.chat.id != SOURCE_CHAT_ID:
         return
 
     text_content = message.text or message.caption or ""
     text_lower = text_content.lower()
 
-    # Check for homework-related keywords
     if any(keyword in text_lower for keyword in KEYWORDS):
         try:
             if message.text:
-                await context.bot.send_message(chat_id=TARGET_CHAT_ID, text=message.text)
+                await bot.send_message(chat_id=TARGET_CHAT_ID, text=message.text)
             elif message.photo:
-                await context.bot.send_photo(chat_id=TARGET_CHAT_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
+                await bot.send_photo(chat_id=TARGET_CHAT_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
             elif message.document:
-                await context.bot.send_document(chat_id=TARGET_CHAT_ID, document=message.document.file_id, caption=message.caption or "")
-            else:
-                return  # Unhandled content types
+                await bot.send_document(chat_id=TARGET_CHAT_ID, document=message.document.file_id, caption=message.caption or "")
 
-            print(f"✅ Forwarded: {text_content[:30]}...")
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"✅ Forwarded homework: {text_content[:30]}...")
+            logger.info(f"✅ Forwarded: {text_content[:30]}...")
+            await bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"✅ Forwarded homework: {text_content[:30]}...")
 
         except Exception as e:
-            logging.error(f"❌ Error forwarding message: {e}")
-            await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Error: {e}")
-
+            logger.error(f"❌ Forwarding failed: {e}")
+            await bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Error forwarding: {e}")
     else:
-        print(f"ℹ️ Skipped non-homework message: {text_content[:30]}...")
+        logger.info(f"ℹ️ Skipped non-homework: {text_content[:30]}...")
 
-# Set up the application
-app = Application.builder().token(TOKEN).build()
-app.add_handler(MessageHandler(filters.ALL, forward_message))
+telegram_app.add_handler(MessageHandler(filters.ALL, forward_message))
 
-# Run the bot
-print("🚀 Bot is running safely in Launch Mode")
-app.run_polling()
+# Webhook startup
+async def startup():
+    webhook_url = "https://homework-bot-wxi3.onrender.com/webhook"  # Your actual Render URL
+    await bot.set_webhook(url=webhook_url)
+    logger.info("🚀 Webhook set successfully.")
+    await bot.send_message(chat_id=ADMIN_CHAT_ID, text="✅ Homework Bot is running!")
 
+# Main
+if __name__ == "__main__":
+    try:
+        asyncio.run(startup())
+    except RuntimeError as e:
+        logger.error(f"Startup error: {e}")
+
+    logger.info("🌐 Serving Flask via Waitress...")
+    serve(app, host="0.0.0.0", port=8080)
