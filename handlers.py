@@ -1,67 +1,38 @@
 import logging
-from telegram import Update, Bot, Message
+from telegram import Update
 from telegram.ext import CallbackContext
-import telegram
-from aiohttp import web
-from telegram.ext import Application
 
 logger = logging.getLogger(__name__)
 
-# Webhook handler
-async def webhook(request, bot, application):
-    try:
-        json_str = await request.json()
-        update = telegram.Update.de_json(json_str, bot)
-        application.process_update(update)
-        return web.Response()  # Return success response
-    except Exception as e:
-        logger.error(f"Error while processing webhook: {e}")
-        return web.Response(status=500, text=f"Internal Server Error: {e}")
+# Start command handler
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text("Hi! I'm your Homework Forwarder Bot.")
+    logger.info(f"Start command received from {update.effective_user.id}")
 
-
-# Forward message handler
+# Forwarding the message (text, media, etc.)
 async def forward_message(update: Update, context: CallbackContext):
     try:
-        # Retrieve the incoming message
         message = update.message
-
         if not message:
-            logger.warning("No message found in the update!")
+            logger.warning("No message found in update!")
             return
 
-        # Check if the TARGET_CHAT_ID is set
-        if "TARGET_CHAT_ID" not in context.bot_data:
-            logger.error("TARGET_CHAT_ID is not set in bot data.")
-            return
+        target_id = context.bot_data["TARGET_CHAT_ID"]
 
-        # Forward text message
         if message.text:
-            await context.bot.send_message(chat_id=context.bot_data["TARGET_CHAT_ID"], text=message.text)
-            logger.info(f"Forwarded text message: {message.text}")
-
-        # Forward media (photo, video, etc.)
+            await context.bot.send_message(chat_id=target_id, text=message.text)
         elif message.photo:
-            await context.bot.send_photo(chat_id=context.bot_data["TARGET_CHAT_ID"], photo=message.photo[-1].file_id)
-            logger.info("Forwarded photo message.")
-
+            await context.bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id)
         elif message.video:
-            await context.bot.send_video(chat_id=context.bot_data["TARGET_CHAT_ID"], video=message.video.file_id)
-            logger.info("Forwarded video message.")
-
-        # Forward audio message
-        elif message.audio:
-            await context.bot.send_audio(chat_id=context.bot_data["TARGET_CHAT_ID"], audio=message.audio.file_id)
-            logger.info("Forwarded audio message.")
-
-        # Forward document (PDF, etc.)
+            await context.bot.send_video(chat_id=target_id, video=message.video.file_id)
         elif message.document:
-            await context.bot.send_document(chat_id=context.bot_data["TARGET_CHAT_ID"], document=message.document.file_id)
-            logger.info("Forwarded document message.")
-
-        # Forward voice note
+            await context.bot.send_document(chat_id=target_id, document=message.document.file_id)
+        elif message.audio:
+            await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id)
         elif message.voice:
-            await context.bot.send_voice(chat_id=context.bot_data["TARGET_CHAT_ID"], voice=message.voice.file_id)
-            logger.info("Forwarded voice note message.")
+            await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
+
+        logger.info("Message forwarded successfully.")
 
     except Exception as e:
-        logger.error(f"Error in forwarding message: {e}")
+        logger.error(f"Error forwarding message: {e}")
