@@ -57,11 +57,12 @@ async def main():
     # Run the app directly without asyncio.run()
     logger.info("🌐 Serving via aiohttp...")
     port = int(os.getenv("PORT", 8080))  # Default to 8080 if PORT is not set
-    web.run_app(app, host="0.0.0.0", port=port)
+    await web.run_app(app, host="0.0.0.0", port=port)
 
 if __name__ == '__main__':
     try:
-        # Run the app without asyncio.run()
-        main()  # Just call the async main function directly
+        # Use asyncio.run() to run the main async function correctly
+        import asyncio
+        asyncio.run(main())  # Use asyncio.run() to run the main coroutine
     except Exception as e:
         logger.error(f"Startup failed: {e}")
