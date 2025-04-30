@@ -1,4 +1,5 @@
 import logging
+import telegram
 from aiohttp import web
 from telegram import Bot
 from telegram.ext import Application
@@ -13,10 +14,14 @@ def setup_routes(app, bot=None, application=None):
 
     # Webhook endpoint to receive updates
     async def webhook(request):
-        json_str = await request.json()
-        update = telegram.Update.de_json(json_str, bot)
-        application.process_update(update)
-        return web.Response()
+        try:
+            json_str = await request.json()
+            update = telegram.Update.de_json(json_str, bot)
+            application.process_update(update)
+            return web.Response()  # return success response
+        except Exception as e:
+            logger.error(f"Error while processing webhook: {e}")
+            return web.Response(status=500, text=f"Internal Server Error: {e}")
 
     # Root route (to prevent 404 errors for root endpoint)
     async def root(request):

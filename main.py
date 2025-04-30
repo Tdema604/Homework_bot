@@ -1,5 +1,6 @@
 import os
 import logging
+from handlers import webhook
 from aiohttp import web
 from telegram import Bot
 from telegram.ext import Application, MessageHandler, filters
@@ -45,23 +46,21 @@ async def main():
     application.add_handler(MessageHandler(filters.ALL, forward_message))
 
     # Add webhook + health routes
-    setup_routes(application)
+    app = web.Application()
+    setup_routes(app, bot, application)
 
     # Set webhook
     bot = Bot(token=TOKEN)
     await bot.set_webhook(url=WEBHOOK_URL)
     logger.info("🚀 Webhook set successfully.")
 
-    # Start web server
+    # Start web server with Waitress
     logger.info("🌐 Serving via Waitress...")
-    serve(application, host="0.0.0.0", port=8080)
+    serve(app, host="0.0.0.0", port=8080)
 
 if __name__ == '__main__':
     try:
-        app = web.Application()
-        setup_routes(app, Bot(token=TOKEN), None)  # 'application' not needed for health checks
-        web.run_app(app, port=8080)
+        # Start the app with Waitress serving the app (not aiohttp.run_app)
+        main()
     except Exception as e:
         logger.error(f"Startup failed: {e}")
-
-
