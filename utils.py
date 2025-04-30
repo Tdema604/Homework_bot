@@ -1,5 +1,11 @@
 # utils.py
 
+from dotenv import load_dotenv
+import os
+
+def load_env():
+    load_dotenv()
+
 async def forward_homework(bot, message, target_chat_id):
     try:
         await bot.forward_message(
