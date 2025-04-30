@@ -1,5 +1,6 @@
 import logging
 import os
+import asyncio
 from aiohttp import web
 from telegram import Bot
 from telegram.ext import Application, MessageHandler, filters
@@ -54,14 +55,16 @@ async def main():
     await bot.set_webhook(url=WEBHOOK_URL)
     logger.info("🚀 Webhook set successfully.")
 
-    # Run the app directly using aiohttp's built-in event loop management
+    # Run the app using the current event loop (avoid creating a new loop)
     logger.info("🌐 Serving via aiohttp...")
     port = int(os.getenv("PORT", 8080))  # Default to 8080 if PORT is not set
-    return web.run_app(app, host="0.0.0.0", port=port)
+
+    loop = asyncio.get_event_loop()  # Get the current event loop
+    await loop.create_task(web._run_app(app, host="0.0.0.0", port=port))  # Use the loop to run the app
 
 if __name__ == '__main__':
     try:
-        # Instead of asyncio.run, use web.run_app which handles the event loop internally
-        web.run_app(main())  # Pass the main async function to web.run_app
+        # Instead of asyncio.run, directly run within the existing event loop
+        asyncio.run(main())  # This will ensure the loop is properly awaited
     except Exception as e:
         logger.error(f"Startup failed: {e}")
