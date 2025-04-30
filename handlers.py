@@ -1,33 +1,25 @@
-from telegram import Update, MessageEntity
+# handlers.py
+
+from telegram import Update
 from telegram.ext import ContextTypes
 from utils import is_spam, forward_homework, notify_admin
-import logging
 
-logger = logging.getLogger(__name__)
+async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    source_chat_id = context.bot_data["SOURCE_CHAT_ID"]
+    target_chat_id = context.bot_data["TARGET_CHAT_ID"]
+    admin_chat_id = context.bot_data["ADMIN_CHAT_ID"]
 
-STUDENT_GROUP_ID = -1002604477249  # Replace with your actual student group ID
-PARENT_GROUP_ID = -1002589235777   # Replace with your actual parent group ID
-ADMIN_USER_ID = 740241927          # Your admin Telegram user ID
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
-    if not message:
+
+    # Only handle messages from the source group
+    if message.chat_id != source_chat_id:
         return
 
-    # Only process messages from the student group
-    if message.chat_id != STUDENT_GROUP_ID:
-        return
+    if await is_spam(message):
+        await message.delete()
+        await notify_admin(context.bot, admin_chat_id, "🛑 Spam message deleted.")
+    else:
+        await forward_homework(context.bot, message, target_chat_id)
+        await notify_admin(context.bot, admin_chat_id, "✅ Homework forwarded successfully.")
+# No need to add __all__, just ensure forward_message exists and is not commented
 
-    try:
-        if is_spam(message):
-            await message.delete()
-            await notify_admin(context.bot, ADMIN_USER_ID, "⚠️ Spam message deleted from student group.")
-            return
-
-        # Forward to parent group
-        await forward_homework(context.bot, message, PARENT_GROUP_ID)
-        await notify_admin(context.bot, ADMIN_USER_ID, "✅ Homework message forwarded successfully.")
-        
-    except Exception as e:
-        logger.error(f"Error handling message: {e}")
-        await notify_admin(context.bot, ADMIN_USER_ID, f"❌ Error: {e}")
