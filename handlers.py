@@ -1,25 +1,20 @@
-# handlers.py
-
+import logging
 from telegram import Update
-from telegram.ext import ContextTypes
-from utils import is_spam, forward_homework, notify_admin
+from telegram.ext import Application
 
-async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    source_chat_id = context.bot_data["SOURCE_CHAT_ID"]
-    target_chat_id = context.bot_data["TARGET_CHAT_ID"]
-    admin_chat_id = context.bot_data["ADMIN_CHAT_ID"]
+logger = logging.getLogger(__name__)
 
-    message = update.effective_message
+async def webhook(request):
+    try:
+        # Get JSON payload from the webhook request
+        json_str = await request.json()
+        logger.info(f"Received webhook data: {json_str}")  # Log the payload for debugging
 
-    # Only handle messages from the source group
-    if message.chat_id != source_chat_id:
-        return
+        # Process the update
+        update = Update.de_json(json_str, bot)
+        application.process_update(update)  # Pass the update to the application
 
-    if await is_spam(message):
-        await message.delete()
-        await notify_admin(context.bot, admin_chat_id, "🛑 Spam message deleted.")
-    else:
-        await forward_homework(context.bot, message, target_chat_id)
-        await notify_admin(context.bot, admin_chat_id, "✅ Homework forwarded successfully.")
-# No need to add __all__, just ensure forward_message exists and is not commented
-
+        return web.Response()  # Return a successful response
+    except Exception as e:
+        logger.error(f"Error while processing webhook: {e}")  # Log the error
+        return web.Response(status=500, text=f"Internal Server Error: {e}")  # Return error response
