@@ -55,7 +55,8 @@ async def main():
 
     # Get the port from environment variables (Render provides this dynamically)
     port = int(os.getenv("PORT", 8080))  # Default to 8080 if not set
-
+# Update this part to explicitly bind to the Render-required port
+web.run_app(app, host="0.0.0.0", port=os.getenv("PORT", 8080)
     # Start aiohttp server with AppRunner
     runner = web.AppRunner(app)
     await runner.setup()
