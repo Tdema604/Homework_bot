@@ -1,51 +1,63 @@
-# handlers.py
-
-import os
-import logging
-from datetime import datetime
-from pytz import timezone
 from telegram import Update
-from telegram.ext import ContextTypes
-from utils import is_spam, get_uptime
+from telegram.ext import ContextTypes, MessageHandler, filters
+import logging
 
-ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")
-TARGET_CHAT_ID = os.getenv("TARGET_CHAT_ID")
-SOURCE_CHAT_ID = os.getenv("SOURCE_CHAT_ID")
+# Set up logging
+logger = logging.getLogger(__name__)
 
-start_time = datetime.now().timestamp()
+# Keywords for valid homework detection
+HOMEWORK_KEYWORDS = ["homework", "assignment", "worksheet"]
 
-# /start command
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("👋 Bot is online and ready to forward homework!")
+# Keywords commonly used in spam
+SPAM_KEYWORDS = [
+    "free", "bit.ly", "t.me/joinchat", "airdrop", "bonus", "investment",
+    "click here", "promo", "earn", "crypto", "guaranteed", "100%", "giveaway"
+]
 
-# /status command
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uptime = get_uptime(start_time)
-    await update.message.reply_text(f"✅ Bot is online.\n⏱ Uptime: {uptime}")
-
-# Forward homework or delete spam
-async def handle_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Main message handler
+async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     if not message:
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ Empty message received.")
         return
 
-    if update.effective_chat.id != int(SOURCE_CHAT_ID):
-        await message.delete()
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ Message rejected. Not from a trusted group.")
+    # Only process messages from the source group
+    if message.chat.id != context.bot_data["SOURCE_CHAT_ID"]:
         return
 
-    if message.text and is_spam(message.text):
-        await message.delete()
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"🚨 Spam deleted: {message.text[:100]}")
+    text_content = message.text or message.caption or ""
+    text_lower = text_content.lower()
+
+    # Check for spam
+    if any(spam in text_lower for spam in SPAM_KEYWORDS):
+        try:
+            await message.delete()
+            logger.warning(f"🚫 Spam deleted: {text_content[:30]}...")
+            await context.bot.send_message(chat_id=context.bot_data["ADMIN_CHAT_ID"],
+                                           text=f"🚫 Spam blocked and deleted:\n{text_content[:50]}...")
+        except Exception as e:
+            logger.error(f"❌ Failed to delete spam: {e}")
         return
 
-    if message.text and "homework" in message.text.lower() or message.document or message.photo or message.video:
-        await context.bot.forward_message(
-            chat_id=TARGET_CHAT_ID,
-            from_chat_id=update.effective_chat.id,
-            message_id=message.message_id
-        )
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="✅ Homework forwarded!")
+    # Check for homework keywords
+    if any(kw in text_lower for kw in HOMEWORK_KEYWORDS):
+        try:
+            if message.text:
+                await context.bot.send_message(chat_id=context.bot_data["TARGET_CHAT_ID"], text=message.text)
+            elif message.photo:
+                await context.bot.send_photo(chat_id=context.bot_data["TARGET_CHAT_ID"],
+                                             photo=message.photo[-1].file_id,
+                                             caption=message.caption or "")
+            elif message.document:
+                await context.bot.send_document(chat_id=context.bot_data["TARGET_CHAT_ID"],
+                                                document=message.document.file_id,
+                                                caption=message.caption or "")
+
+            logger.info(f"✅ Forwarded: {text_content[:30]}...")
+            await context.bot.send_message(chat_id=context.bot_data["ADMIN_CHAT_ID"],
+                                           text=f"✅ Homework forwarded:\n{text_content[:50]}...")
+        except Exception as e:
+            logger.error(f"❌ Error forwarding: {e}")
+            await context.bot.send_message(chat_id=context.bot_data["ADMIN_CHAT_ID"],
+                                           text=f"⚠️ Error forwarding message:\n{e}")
     else:
-        await context.bot.send_message(chat_id=ADMIN_CHAT_ID, text="⚠️ No valid homework found.")
+        logger.info(f"ℹ️ Non-homework message skipped: {text_content[:30]}...")
