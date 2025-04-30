@@ -4,6 +4,9 @@ import pytz
 from datetime import datetime
 from telegram import Bot
 from telegram.constants import ParseMode
+import os
+print("BOT_TOKEN loaded from env:", repr(os.environ.get("BOT_TOKEN")))
+
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 ADMIN_ID = os.environ.get("ADMIN_ID")
