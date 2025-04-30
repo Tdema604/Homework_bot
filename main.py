@@ -36,6 +36,9 @@ WEBHOOK_URL = f"https://{WEBHOOK_DOMAIN}{WEBHOOK_PATH}"
 
 # Start bot app
 async def main():
+    # Create bot instance before setting up routes
+    bot = Bot(token=TOKEN)
+
     application = Application.builder().token(TOKEN).build()
 
     # Inject bot data (IDs) for handler access
@@ -51,7 +54,6 @@ async def main():
     setup_routes(app, bot, application)
 
     # Set webhook
-    bot = Bot(token=TOKEN)
     await bot.set_webhook(url=WEBHOOK_URL)
     logger.info("🚀 Webhook set successfully.")
 
