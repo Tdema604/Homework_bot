@@ -1,5 +1,6 @@
 import os
 import logging
+from aiohttp import web
 from telegram import Bot
 from telegram.ext import Application, MessageHandler, filters
 from handlers import forward_message
@@ -55,13 +56,12 @@ async def main():
     logger.info("🌐 Serving via Waitress...")
     serve(application, host="0.0.0.0", port=8080)
 
-# Run startup
 if __name__ == '__main__':
     try:
-        from web import setup_routes
         app = web.Application()
-        setup_routes(app, bot, application)
-        web.run_app(app, port=PORT)
+        setup_routes(app, Bot(token=TOKEN), None)  # 'application' not needed for health checks
+        web.run_app(app, port=8080)
     except Exception as e:
         logger.error(f"Startup failed: {e}")
+
 
