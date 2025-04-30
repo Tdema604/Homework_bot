@@ -3,10 +3,10 @@ import os
 import asyncio
 from aiohttp import web
 from telegram import Bot
-from telegram.ext import Application
+from telegram.ext import Application, MessageHandler, filters  # Ensure these are imported correctly
 from handlers import forward_message
 from utils import load_env
-from web import setup_routes  # Assuming you have a setup_routes function in web.py
+from web import setup_routes
 
 # Set up logging
 logging.basicConfig(
@@ -37,6 +37,7 @@ async def main():
     # Create bot instance before setting up routes
     bot = Bot(token=TOKEN)
 
+    # Initialize the Application object
     application = Application.builder().token(TOKEN).build()
 
     # Inject bot data (IDs) for handler access
@@ -44,10 +45,10 @@ async def main():
     application.bot_data["TARGET_CHAT_ID"] = TARGET_CHAT_ID
     application.bot_data["ADMIN_CHAT_ID"] = ADMIN_CHAT_ID
 
-    # Add main message handler
+    # Add the main message handler to handle all types of messages
     application.add_handler(MessageHandler(filters.ALL, forward_message))
 
-    # Add webhook + health routes
+    # Set up webhook + health routes
     app = web.Application()
     setup_routes(app, bot, application)
 
@@ -57,12 +58,11 @@ async def main():
 
     # Start aiohttp server
     logger.info("🌐 Serving via aiohttp...")
-    # Use aiohttp's native web runner instead of Waitress
     web.run_app(app, host="0.0.0.0", port=8080)
 
 if __name__ == '__main__':
     try:
-        # Make sure the async function is awaited
+        # Run the async main function using asyncio
         asyncio.run(main())  # Use asyncio.run() to run the main coroutine
     except Exception as e:
         logger.error(f"Startup failed: {e}")
