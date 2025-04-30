@@ -1,63 +1,33 @@
-from telegram import Update
-from telegram.ext import ContextTypes, MessageHandler, filters
+from telegram import Update, MessageEntity
+from telegram.ext import ContextTypes
+from utils import is_spam, forward_homework, notify_admin
 import logging
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
-# Keywords for valid homework detection
-HOMEWORK_KEYWORDS = ["homework", "assignment", "worksheet"]
+STUDENT_GROUP_ID = -1002604477249  # Replace with your actual student group ID
+PARENT_GROUP_ID = -1002589235777   # Replace with your actual parent group ID
+ADMIN_USER_ID = 740241927          # Your admin Telegram user ID
 
-# Keywords commonly used in spam
-SPAM_KEYWORDS = [
-    "free", "bit.ly", "t.me/joinchat", "airdrop", "bonus", "investment",
-    "click here", "promo", "earn", "crypto", "guaranteed", "100%", "giveaway"
-]
-
-# Main message handler
-async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.message
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
     if not message:
         return
 
-    # Only process messages from the source group
-    if message.chat.id != context.bot_data["SOURCE_CHAT_ID"]:
+    # Only process messages from the student group
+    if message.chat_id != STUDENT_GROUP_ID:
         return
 
-    text_content = message.text or message.caption or ""
-    text_lower = text_content.lower()
-
-    # Check for spam
-    if any(spam in text_lower for spam in SPAM_KEYWORDS):
-        try:
+    try:
+        if is_spam(message):
             await message.delete()
-            logger.warning(f"🚫 Spam deleted: {text_content[:30]}...")
-            await context.bot.send_message(chat_id=context.bot_data["ADMIN_CHAT_ID"],
-                                           text=f"🚫 Spam blocked and deleted:\n{text_content[:50]}...")
-        except Exception as e:
-            logger.error(f"❌ Failed to delete spam: {e}")
-        return
+            await notify_admin(context.bot, ADMIN_USER_ID, "⚠️ Spam message deleted from student group.")
+            return
 
-    # Check for homework keywords
-    if any(kw in text_lower for kw in HOMEWORK_KEYWORDS):
-        try:
-            if message.text:
-                await context.bot.send_message(chat_id=context.bot_data["TARGET_CHAT_ID"], text=message.text)
-            elif message.photo:
-                await context.bot.send_photo(chat_id=context.bot_data["TARGET_CHAT_ID"],
-                                             photo=message.photo[-1].file_id,
-                                             caption=message.caption or "")
-            elif message.document:
-                await context.bot.send_document(chat_id=context.bot_data["TARGET_CHAT_ID"],
-                                                document=message.document.file_id,
-                                                caption=message.caption or "")
-
-            logger.info(f"✅ Forwarded: {text_content[:30]}...")
-            await context.bot.send_message(chat_id=context.bot_data["ADMIN_CHAT_ID"],
-                                           text=f"✅ Homework forwarded:\n{text_content[:50]}...")
-        except Exception as e:
-            logger.error(f"❌ Error forwarding: {e}")
-            await context.bot.send_message(chat_id=context.bot_data["ADMIN_CHAT_ID"],
-                                           text=f"⚠️ Error forwarding message:\n{e}")
-    else:
-        logger.info(f"ℹ️ Non-homework message skipped: {text_content[:30]}...")
+        # Forward to parent group
+        await forward_homework(context.bot, message, PARENT_GROUP_ID)
+        await notify_admin(context.bot, ADMIN_USER_ID, "✅ Homework message forwarded successfully.")
+        
+    except Exception as e:
+        logger.error(f"Error handling message: {e}")
+        await notify_admin(context.bot, ADMIN_USER_ID, f"❌ Error: {e}")
