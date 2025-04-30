@@ -29,10 +29,10 @@ SOURCE_CHAT_ID = int(os.getenv("SOURCE_CHAT_ID"))
 TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
 ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
 
-# Webhook setup
-WEBHOOK_DOMAIN = os.getenv("WEBHOOK_DOMAIN")  # e.g., homework-bot-xyz.onrender.com
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"https://{WEBHOOK_DOMAIN}{WEBHOOK_PATH}"
+# Webhook URL from .env
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+if not WEBHOOK_URL:
+    raise ValueError("WEBHOOK_URL is missing in the environment variables!")
 
 # Start bot app
 async def main():

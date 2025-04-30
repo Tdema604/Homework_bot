@@ -1,30 +1,37 @@
-import logging
-from telegram import Update
+from telegram import Update, Bot, Message
 from telegram.ext import CallbackContext
-import json
+import logging
 
 logger = logging.getLogger(__name__)
 
-# This function will forward the message (not implemented yet)
 async def forward_message(update: Update, context: CallbackContext):
-    # Your logic for forwarding the message
-    pass
-
-# Webhook handler that processes the incoming updates from Telegram
-async def webhook(request, bot, application):
     try:
-        # Log the incoming request for debugging
-        json_str = await request.json()
-        logger.info(f"Received webhook data: {json.dumps(json_str)}")
+        # Retrieve the incoming message
+        message = update.message
 
-        # Convert the incoming JSON data to a Telegram update
-        update = Update.de_json(json_str, bot)
+        if not message:
+            logger.warning("No message found in the update!")
+            return
 
-        # Process the update (handle the message, etc.)
-        application.process_update(update)
+        # Forward text message
+        if message.text:
+            # Forward text message to the target chat
+            await context.bot.send_message(chat_id=context.bot_data["TARGET_CHAT_ID"], text=message.text)
+            logger.info(f"Forwarded text message: {message.text}")
 
-        return web.Response()
+        # Forward media (photo, video, etc.)
+        elif message.photo:
+            # Forward photo to the target chat
+            await context.bot.send_photo(chat_id=context.bot_data["TARGET_CHAT_ID"], photo=message.photo[-1].file_id)
+            logger.info("Forwarded photo message.")
+
+        elif message.video:
+            # Forward video to the target chat
+            await context.bot.send_video(chat_id=context.bot_data["TARGET_CHAT_ID"], video=message.video.file_id)
+            logger.info("Forwarded video message.")
+
+        # Handle other types (audio, documents, etc.) as needed
+        # You can add similar blocks for other message types like document, voice, etc.
 
     except Exception as e:
-        logger.error(f"Error processing webhook request: {e}")
-        return web.Response(status=500, text="Internal Server Error")
+        logger.error(f"Error in forwarding message: {e}")
