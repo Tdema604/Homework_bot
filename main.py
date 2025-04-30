@@ -8,6 +8,7 @@ from handlers import forward_message
 from utils import load_env
 from web import setup_routes
 from waitress import serve
+import asyncio  # Import asyncio to run the async function
 
 # Load .env variables
 load_env()
@@ -60,7 +61,7 @@ async def main():
 
 if __name__ == '__main__':
     try:
-        # Start the app with Waitress serving the app (not aiohttp.run_app)
-        main()
+        # Make sure the async function is awaited
+        asyncio.run(main())  # Use asyncio.run() to run the main coroutine
     except Exception as e:
         logger.error(f"Startup failed: {e}")
