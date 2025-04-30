@@ -1,12 +1,11 @@
 import logging
 import os
-import asyncio
 from aiohttp import web
 from telegram import Bot
-from telegram.ext import Application, MessageHandler, filters  # Ensure these are imported correctly
+from telegram.ext import Application, MessageHandler, filters
 from handlers import forward_message
 from utils import load_env
-from web import setup_routes
+from web import setup_routes  # Assuming you have a setup_routes function in web.py
 
 # Set up logging
 logging.basicConfig(
@@ -37,7 +36,6 @@ async def main():
     # Create bot instance before setting up routes
     bot = Bot(token=TOKEN)
 
-    # Initialize the Application object
     application = Application.builder().token(TOKEN).build()
 
     # Inject bot data (IDs) for handler access
@@ -45,10 +43,10 @@ async def main():
     application.bot_data["TARGET_CHAT_ID"] = TARGET_CHAT_ID
     application.bot_data["ADMIN_CHAT_ID"] = ADMIN_CHAT_ID
 
-    # Add the main message handler to handle all types of messages
+    # Add main message handler
     application.add_handler(MessageHandler(filters.ALL, forward_message))
 
-    # Set up webhook + health routes
+    # Add webhook + health routes
     app = web.Application()
     setup_routes(app, bot, application)
 
@@ -56,13 +54,14 @@ async def main():
     await bot.set_webhook(url=WEBHOOK_URL)
     logger.info("🚀 Webhook set successfully.")
 
-    # Start aiohttp server
+    # Run the app directly without asyncio.run()
     logger.info("🌐 Serving via aiohttp...")
-    web.run_app(app, host="0.0.0.0", port=8080)
+    port = int(os.getenv("PORT", 8080))  # Default to 8080 if PORT is not set
+    web.run_app(app, host="0.0.0.0", port=port)
 
 if __name__ == '__main__':
     try:
-        # Run the async main function using asyncio
-        asyncio.run(main())  # Use asyncio.run() to run the main coroutine
+        # Run the app without asyncio.run()
+        main()  # Just call the async main function directly
     except Exception as e:
         logger.error(f"Startup failed: {e}")
