@@ -1,12 +1,12 @@
-import logging
 import os
+import logging
 import asyncio
 from aiohttp import web
 from telegram import Bot
 from telegram.ext import Application, MessageHandler, filters
-from handlers import forward_message, start  # Import handlers for /start and message forwarding
+from handlers import forward_message, start
 from utils import load_env
-from web import setup_routes  # Assuming setup_routes is in web.py
+from web import setup_routes
 
 # Set up logging
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -53,12 +53,15 @@ async def main():
     await bot.set_webhook(url=WEBHOOK_URL)
     logger.info("🚀 Webhook set successfully.")
 
+    # Get the port from environment variables (Render provides this dynamically)
+    port = int(os.getenv("PORT", 8080))  # Default to 8080 if not set
+
     # Start aiohttp server with AppRunner
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", 8080)
+    site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    logger.info("🌐 Serving via aiohttp...")
+    logger.info(f"🌐 Serving on port {port} via aiohttp...")
 
 if __name__ == '__main__':
     try:
@@ -66,3 +69,4 @@ if __name__ == '__main__':
         asyncio.run(main())
     except Exception as e:
         logger.error(f"Startup failed: {e}")
+    
