@@ -3,3 +3,5 @@ python-telegram-bot==20.0
 waitress==3.0.2
 python-dotenv==1.0.0
 pytz
+werkzeug==2.3.7
+
