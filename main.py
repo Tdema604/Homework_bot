@@ -140,11 +140,8 @@ if __name__ == "__main__":
     try:
         asyncio.run(startup())
     except RuntimeError as e:
-        logger.error(f"Startup error: {e}")
-
-    logger.info("🌐 Serving Flask via Waitress...")
-    serve(app, host="0.0.0.0", port=8080)
         logger.error(f"Startup failed: {e}")
 
     logger.info("🌐 Serving via Waitress...")
     serve(app, host="0.0.0.0", port=8080)
+
