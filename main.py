@@ -6,18 +6,17 @@ from datetime import datetime
 from dotenv import load_dotenv
 from waitress import serve
 from flask import Flask, request
-
 from telegram import Bot, Update
 from telegram.ext import (
     Application,
     MessageHandler,
     filters,
-    ContextTypes
-)
+    ContextTypes)
 
 # Load environment variables
 load_dotenv()
 
+# Bot credentials and chat IDs
 TOKEN = os.getenv("TOKEN")
 SOURCE_CHAT_ID = int(os.getenv("SOURCE_CHAT_ID"))
 TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
@@ -46,8 +45,7 @@ def health():
     return {
         "status": "ok",
         "uptime_seconds": uptime,
-        "timestamp": datetime.utcnow().isoformat() + "Z"
-    }
+        "timestamp": datetime.utcnow().isoformat() + "Z"}
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -96,6 +94,48 @@ async def startup():
     await bot.send_message(chat_id=ADMIN_CHAT_ID, text="✅ Homework Bot is running!")
 
 # Main
+    if not message:
+        return
+
+    if message.chat.id == SOURCE_CHAT_ID:
+        text_content = message.text or message.caption or ""
+        text_lower = text_content.lower()
+
+        if any(keyword in text_lower for keyword in KEYWORDS):
+            try:
+                if message.text:
+                    await bot.send_message(chat_id=TARGET_CHAT_ID, text=message.text)
+                elif message.photo:
+                    await bot.send_photo(chat_id=TARGET_CHAT_ID, photo=message.photo[-1].file_id, caption=message.caption or "")
+                elif message.document:
+                    await bot.send_document(chat_id=TARGET_CHAT_ID, document=message.document.file_id, caption=message.caption or "")
+                
+                logger.info(f"✅ Forwarded: {text_content[:30]}...")
+
+                if ADMIN_CHAT_ID:
+                    await bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"✅ Forwarded homework: {text_content[:30]}...")
+
+            except Exception as e:
+                logger.error(f"❌ Error forwarding: {e}")
+                if ADMIN_CHAT_ID:
+                    await bot.send_message(chat_id=ADMIN_CHAT_ID, text=f"⚠️ Error: {e}")
+        else:
+            logger.info(f"ℹ️ Non-homework message skipped: {text_content[:30]}...")
+
+
+# Register handler
+telegram_app.add_handler(MessageHandler(filters.ALL, forward_message))
+
+
+# Startup actions (run once on boot)
+async def startup():
+    webhook_url = f"https://your-app-name.onrender.com/webhook"  # Replace with your actual Render app URL
+    await bot.set_webhook(url=webhook_url)
+    logger.info("🚀 Webhook set successfully.")
+    if ADMIN_CHAT_ID:
+        await bot.send_message(chat_id=ADMIN_CHAT_ID, text="✅ Bot has started via webhook!")
+
+
 if __name__ == "__main__":
     try:
         asyncio.run(startup())
@@ -103,4 +143,8 @@ if __name__ == "__main__":
         logger.error(f"Startup error: {e}")
 
     logger.info("🌐 Serving Flask via Waitress...")
+    serve(app, host="0.0.0.0", port=8080)
+        logger.error(f"Startup failed: {e}")
+
+    logger.info("🌐 Serving via Waitress...")
     serve(app, host="0.0.0.0", port=8080)
