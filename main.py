@@ -1,23 +1,21 @@
-import os
 import logging
-from handlers import webhook
+import os
+import asyncio
 from aiohttp import web
 from telegram import Bot
-from telegram.ext import Application, MessageHandler, filters
+from telegram.ext import Application
 from handlers import forward_message
 from utils import load_env
-from web import setup_routes
-from waitress import serve
-import asyncio  # Import asyncio to run the async function
-
-# Load .env variables
-load_env()
+from web import setup_routes  # Assuming you have a setup_routes function in web.py
 
 # Set up logging
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# Load .env variables
+load_env()
 
 # Bot token from .env
 TOKEN = os.getenv("BOT_TOKEN")
@@ -57,9 +55,10 @@ async def main():
     await bot.set_webhook(url=WEBHOOK_URL)
     logger.info("🚀 Webhook set successfully.")
 
-    # Start web server with Waitress
-    logger.info("🌐 Serving via Waitress...")
-    serve(app, host="0.0.0.0", port=8080)
+    # Start aiohttp server
+    logger.info("🌐 Serving via aiohttp...")
+    # Use aiohttp's native web runner instead of Waitress
+    web.run_app(app, host="0.0.0.0", port=8080)
 
 if __name__ == '__main__':
     try:
