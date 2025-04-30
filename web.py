@@ -1,18 +1,27 @@
+import logging
 from aiohttp import web
+from telegram import Bot
+from telegram.ext import Application
+from utils import is_spam, forward_homework, notify_admin
 
-def setup_routes(application):
-    """Sets up /webhook and /health endpoints on the Telegram Application."""
-    async def webhook_handler(request):
-        """Handles incoming Telegram updates from the webhook."""
-        data = await request.json()
-        await application.update_queue.put(data)
+logger = logging.getLogger(__name__)
+
+# This function sets up routes for both webhook and health check
+def setup_routes(app, bot=None, application=None):
+    # Health check route for webhook to ensure the server is up
+    async def health(request):
         return web.Response(text="OK")
 
-    async def health_check(request):
-        """Health check endpoint for uptime monitoring."""
-        return web.Response(text="Bot is healthy!")
+    # Webhook endpoint to receive updates
+    async def webhook(request):
+        json_str = await request.json()
+        update = telegram.Update.de_json(json_str, bot)
+        application.process_update(update)
+        return web.Response()
 
-    application.web_app.add_routes([
-        web.post("/webhook", webhook_handler),
-        web.get("/health", health_check),
-    ])
+    # Add routes to the aiohttp app
+    app.router.add_get("/health", health)  # Health check
+    app.router.add_post("/webhook", webhook)  # Webhook listener
+
+    logger.info("🔌 Web routes set up successfully.")
+
