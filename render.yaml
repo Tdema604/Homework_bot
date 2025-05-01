@@ -3,7 +3,7 @@ services:
     name: your-bot-name
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn main:app
+    startCommand: python main.py  # ✅ Changed from gunicorn to python
     envVars:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
