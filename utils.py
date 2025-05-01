@@ -4,6 +4,17 @@ import os
 def load_env():
     load_dotenv()
 
+def get_homework_keywords():
+    raw_keywords = os.getenv("HOMEWORK_KEYWORDS", "")
+    return [kw.strip().lower() for kw in raw_keywords.split(",") if kw.strip()]
+
+def is_homework(message):
+    if not message.text:
+        return False
+    homework_keywords = get_homework_keywords()
+    return any(keyword in message.text.lower() for keyword in homework_keywords)
+
+
 async def forward_homework(bot, message, target_chat_id):
     try:
         await bot.forward_message(
@@ -17,6 +28,13 @@ async def forward_homework(bot, message, target_chat_id):
 def is_spam(message):
     spam_keywords = ['free', 'win', 'prize', 'lottery', 'cash']
     return any(keyword in message.text.lower() for keyword in spam_keywords if message.text)
+def is_homework(message):
+    if not message.text:
+        return False
+
+    homework_keywords = ['homework', 'hw', 'assignment', 'work', 'math', 'science', 'question', 'chapter']
+    return any(keyword in message.text.lower() for keyword in homework_keywords)
+
 
 async def notify_admin(bot, admin_chat_id, text):
     try:
