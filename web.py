@@ -10,9 +10,9 @@ def setup_routes(app, bot, application):
         logger.info(f"📡 Incoming webhook request from IP: {client_ip}")
 
         # 🚫 TEMP: Disable IP validation for now
-        # if not is_telegram_request(client_ip):
-        #     logger.error(f"❌ Rejected request from IP: {client_ip}")
-        #     return web.Response(status=403, text="Forbidden: Invalid source")
+        if not is_telegram_request(client_ip):
+    logger.error(f"🚫 Invalid request source: {client_ip}")
+    return web.Response(status=403, text="Forbidden: Invalid source")
 
         try:
             data = await request.json()
