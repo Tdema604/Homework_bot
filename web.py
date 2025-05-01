@@ -1,34 +1,27 @@
 from aiohttp import web
-from telegram import Update
 import logging
-from utils import is_telegram_request
+from telegram.ext import Application
 
 logger = logging.getLogger(__name__)
 
-def setup_routes(app, bot, application):
+def setup_routes(app: web.Application, telegram_app: Application, bot):
+    # Webhook route
     async def handle_webhook(request):
-        client_ip = request.headers.get('X-Real-IP', request.remote)
-        logger.info(f"📡 Webhook request from IP: {client_ip}")
-
-        # Optional: Uncomment later when IP validation is needed
-        if not is_telegram_request(client_ip):
-            logger.error(f"🚫 Invalid request source: {client_ip}")
-            return web.Response(status=403, text="Forbidden: Invalid source")
-
         try:
             data = await request.json()
+            logger.info(f"📡 Webhook request from IP: {request.remote}")
             logger.info(f"📨 Webhook data: {data}")
-            update = Update.de_json(data, bot)
-            await application.process_update(update)
-            return web.Response(text="OK", content_type='application/json')
+            await telegram_app.update_queue.put(data)
+            return web.Response(status=200)
         except Exception as e:
             logger.error(f"🔥 Webhook error: {e}")
-            return web.Response(status=500, text="Webhook error")
+            return web.Response(status=500, text="Webhook processing failed")
 
-    async def healthcheck(request):
-        return web.Response(text="Bot is alive!")
+    # Health check route
+    async def health_check(request):
+        return web.Response(text="✅ Bot is healthy", status=200)
 
-    # 🧠 Don't forget to register these routes!
     app.router.add_post("/", handle_webhook)
-    app.router.add_get("/", healthcheck)
+    app.router.add_get("/", health_check)
+
     logger.info("✅ Routes registered for '/'")

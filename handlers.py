@@ -1,40 +1,35 @@
 import logging
 from telegram import Update
-from telegram.ext import CallbackContext
+from telegram.ext import ContextTypes
 from utils import is_homework
 
 logger = logging.getLogger(__name__)
 
-# Start command handler
-async def start(update: Update, context: CallbackContext):
-    await update.message.reply_text("Hi! I'm your Homework Forwarder Bot.")
-    logger.info(f"Start command received from {update.effective_user.id}")
+# /start command handler
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("👋 Hello! I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!")
+    logger.info(f"📥 /start command from {update.effective_user.id}")
 
-# Message forwarding handler
-async def forward_message(update: Update, context: CallbackContext):
+# Smart message forwarding handler
+async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         message = update.message
         if not message:
-            logger.warning("No message found in update!")
+            logger.warning("⚠️ No message found in update.")
             return
 
         source_id = message.chat_id
-        target_id = context.bot_data["TARGET_CHAT_ID"]
-        admin_id = context.bot_data["ADMIN_CHAT_ID"]
+        target_id = context.bot_data.get("TARGET_CHAT_ID")
+        admin_id = context.bot_data.get("ADMIN_CHAT_ID")
 
-        # ✅ Filter everything through is_homework()
-        if not is_homework(message):
-            logger.info("🛑 Non-homework message blocked.")
-            return
-        if not is_homework(message):
-            logger.info("🛑 Non-homework message blocked.")
-            await context.bot.send_message(
-                chat_id=admin_id,
-                text=f"❌ Blocked message from @{user.username or user.id}"
-            )
+        # Filter out non-homework text
+        if message.text and not is_homework(message):
+            logger.info(f"📌 Ignored non-homework message: {message.text}")
             return
 
-        media_type = "Unsupported"
+        media_type = "Unknown"
+
+        # Forward different types of media
         if message.text:
             media_type = "Text"
             await context.bot.send_message(chat_id=target_id, text=message.text)
@@ -54,18 +49,17 @@ async def forward_message(update: Update, context: CallbackContext):
             media_type = "Voice"
             await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
         else:
-            logger.warning(f"Unsupported media type received: {message}")
+            logger.warning(f"⛔ Unsupported message type: {message}")
             return
 
-        # Log the forwarded media type
-        logger.info(f"✅ Forwarded {media_type} message from chat {source_id}.")
+        logger.info(f"✅ Forwarded {media_type} from chat {source_id}.")
 
-        # Notify the admin about the forwarded message
-        user = update.effective_user
+        # Admin notification
+        sender = update.effective_user
         await context.bot.send_message(
             chat_id=admin_id,
-            text=f"📤 Forwarded {media_type} from @{user.username or user.id}."
+            text=f"📤 Forwarded {media_type} from @{sender.username or sender.id}."
         )
 
     except Exception as e:
-        logger.error(f"🚨 Error forwarding message: {e}")
+        logger.error(f"🚨 Error while forwarding: {e}")
