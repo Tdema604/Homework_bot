@@ -1,4 +1,6 @@
 import re
+import os
+from dotenv import load_dotenv
 
 def is_homework(message):
     """
@@ -27,3 +29,13 @@ def is_homework(message):
         return True
 
     return False  # Likely not homework
+
+def load_env():
+    load_dotenv()
+    return {
+        "TOKEN": os.getenv("TOKEN"),
+        "TARGET_CHAT_ID": int(os.getenv("TARGET_CHAT_ID")),
+        "ADMIN_CHAT_ID": int(os.getenv("ADMIN_CHAT_ID")),
+        "SECRET_PATH": os.getenv("SECRET_PATH"),
+        "PORT": int(os.getenv("PORT", 10000))  # default to 10000 if not set
+    }
