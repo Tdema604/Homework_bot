@@ -15,57 +15,49 @@ logger = logging.getLogger(__name__)
 # Load .env variables
 load_env()
 
-# Bot token from .env
 TOKEN = os.getenv("BOT_TOKEN")
-if not TOKEN:
-    raise ValueError("BOT_TOKEN is missing in the environment variables!")
-
-# Group/Admin chat IDs from .env
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 SOURCE_CHAT_ID = int(os.getenv("SOURCE_CHAT_ID"))
 TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
 ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
+PORT = int(os.getenv("PORT", 8080))  # Render provides this automatically
 
-# Webhook URL from .env
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-if not WEBHOOK_URL:
-    raise ValueError("WEBHOOK_URL is missing in the environment variables!")
+if not TOKEN or not WEBHOOK_URL:
+    raise ValueError("BOT_TOKEN or WEBHOOK_URL is missing in .env")
 
-# Start bot app
 async def main():
     bot = Bot(token=TOKEN)
 
+    # Telegram bot app
     application = Application.builder().token(TOKEN).build()
-
-    # Inject bot data (IDs) for handler access
     application.bot_data["SOURCE_CHAT_ID"] = SOURCE_CHAT_ID
     application.bot_data["TARGET_CHAT_ID"] = TARGET_CHAT_ID
     application.bot_data["ADMIN_CHAT_ID"] = ADMIN_CHAT_ID
 
-    # Add main message handler and start command handler
     application.add_handler(MessageHandler(filters.ALL, forward_message))
     application.add_handler(MessageHandler(filters.COMMAND, start))
 
-    # Set up the aiohttp app and routes
+    # aiohttp app
     app = web.Application()
     setup_routes(app, bot, application)
 
-    # Set webhook
+    # Set Telegram webhook
     await bot.set_webhook(url=WEBHOOK_URL)
     logger.info("🚀 Webhook set successfully.")
 
-    # Get the port from environment variables (Render provides this dynamically)
-    port = int(os.getenv("PORT", 8080))  # Default to 8080 if not set
-
-    # Start aiohttp server with AppRunner
+    # Bind to Render-assigned port
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port)
+    site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
     await site.start()
-    logger.info(f"🌐 Serving on port {port} via aiohttp...")
+    logger.info(f"🌐 Serving via aiohttp on port {PORT}...")
+
+    # Keep running until manually stopped
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == '__main__':
     try:
-        # Start the event loop
         asyncio.run(main())
     except Exception as e:
         logger.error(f"Startup failed: {e}")
