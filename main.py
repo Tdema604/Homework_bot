@@ -19,49 +19,42 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 SOURCE_CHAT_ID = int(os.getenv("SOURCE_CHAT_ID"))
 TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
 ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
-PORT = int(os.getenv("PORT", 8080))  # Default to 8080 for local; Render overrides this
+PORT = int(os.getenv("PORT", 8080))  # Default 8080; Render overrides
 
 if not TOKEN or not WEBHOOK_URL:
     raise ValueError("BOT_TOKEN or WEBHOOK_URL is missing in .env")
 
-async def main():
-    # Initialize Telegram application
+# 🌐 Global aiohttp app for gunicorn to detect
+app = web.Application()
+
+async def init_bot():
+    # Initialize Telegram app
     application = Application.builder().token(TOKEN).build()
 
-    # Store useful IDs in bot_data
+    # Store config in bot_data
     application.bot_data["SOURCE_CHAT_ID"] = SOURCE_CHAT_ID
     application.bot_data["TARGET_CHAT_ID"] = TARGET_CHAT_ID
     application.bot_data["ADMIN_CHAT_ID"] = ADMIN_CHAT_ID
 
-    # Register command and message handlers
+    # Register bot handlers
     application.add_handler(MessageHandler(filters.COMMAND, start))
     application.add_handler(MessageHandler(filters.ALL, forward_message))
 
-    # 🔧 Must be called before processing updates manually via webhook
+    # Init bot and set webhook
     await application.initialize()
-
-    # Set Telegram webhook
     await application.bot.set_webhook(url=WEBHOOK_URL)
     logger.info("🚀 Webhook set successfully.")
 
-    # aiohttp setup for Render hosting
-    app = web.Application()
+    # Add Telegram webhook and health check routes
     setup_routes(app, application.bot, application)
+    logger.info("✅ Routes registered.")
 
+    # Start aiohttp site
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
     await site.start()
-    logger.info(f"🌐 Serving via aiohttp on port {PORT}...")
+    logger.info(f"🌍 Bot live and serving on port {PORT}.")
 
-    # Keep the bot alive
-    while True:
-        await asyncio.sleep(3600)
-
-if __name__ == "__main__":
-    import traceback
-
-    try:
-        asyncio.run(main())
-    except Exception:
-        logger.error("🚨 Startup failed with exception:\n%s", traceback.format_exc())
+# Run bot on startup
+asyncio.get_event_loop().create_task(init_bot())
