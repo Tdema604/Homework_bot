@@ -52,9 +52,15 @@ async def init_bot():
     # Start aiohttp site
     runner = web.AppRunner(app)
     await runner.setup()
+    PORT = int(os.getenv("PORT", 8080))
     site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
     await site.start()
     logger.info(f"🌍 Bot live and serving on port {PORT}.")
 
-# Run bot on startup
-asyncio.get_event_loop().create_task(init_bot())
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(init_bot())
+    except Exception as e:
+        logger.error(f"🚨 Startup error: {e}")
+
