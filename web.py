@@ -29,6 +29,15 @@ def setup_routes(app, bot, application):
     async def healthcheck(request):
         return web.Response(text="Bot is alive!")
 
+def is_telegram_request(ip):
+    # Replace with updated list if needed
+    telegram_ips = [
+        "149.154.160.0/20",  # Telegram's IP range
+        "91.108.4.0/22"
+    ]
+    # Temporarily bypass check for now
+    return True
+
     app.router.add_post("/", handle_webhook)
     app.router.add_get("/", healthcheck)
     logger.info("🔌 Web routes set up successfully.")
