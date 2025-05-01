@@ -7,13 +7,15 @@ logger = logging.getLogger(__name__)
 
 def setup_routes(app, bot, application):
     async def handle_webhook(request):
+logger.info("⚡ handle_webhook triggered!")  # <== Put right at the top
+
         client_ip = request.headers.get('X-Real-IP', request.remote)
         logger.info(f"📡 Webhook request from IP: {client_ip}")
 
         # Optional: Uncomment later when IP validation is needed
-        if not is_telegram_request(client_ip):
-            logger.error(f"🚫 Invalid request source: {client_ip}")
-            return web.Response(status=403, text="Forbidden: Invalid source")
+        # if not is_telegram_request(client_ip):
+            # logger.error(f"🚫 Invalid request source: {client_ip}")
+            # return web.Response(status=403, text="Forbidden: Invalid source")
 
         try:
             data = await request.json()
