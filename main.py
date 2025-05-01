@@ -25,39 +25,43 @@ if not TOKEN or not WEBHOOK_URL:
     raise ValueError("BOT_TOKEN or WEBHOOK_URL is missing in .env")
 
 async def main():
-    # Initialize application
+    # Initialize Telegram application
     application = Application.builder().token(TOKEN).build()
 
-    # Store IDs in bot_data
+    # Store useful IDs in bot_data
     application.bot_data["SOURCE_CHAT_ID"] = SOURCE_CHAT_ID
     application.bot_data["TARGET_CHAT_ID"] = TARGET_CHAT_ID
     application.bot_data["ADMIN_CHAT_ID"] = ADMIN_CHAT_ID
 
-    # Add command and message handlers
+    # Register command and message handlers
     application.add_handler(MessageHandler(filters.COMMAND, start))
     application.add_handler(MessageHandler(filters.ALL, forward_message))
 
-    # Create aiohttp app and add routes
-    app = web.Application()
-    setup_routes(app, application.bot, application)
+    # 🔧 Must be called before processing updates manually via webhook
+    await application.initialize()
 
-    # Set webhook
+    # Set Telegram webhook
     await application.bot.set_webhook(url=WEBHOOK_URL)
     logger.info("🚀 Webhook set successfully.")
 
-    # Bind to port for Render
+    # aiohttp setup for Render hosting
+    app = web.Application()
+    setup_routes(app, application.bot, application)
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, host="0.0.0.0", port=PORT)
     await site.start()
     logger.info(f"🌐 Serving via aiohttp on port {PORT}...")
 
-    # Keep alive
+    # Keep the bot alive
     while True:
         await asyncio.sleep(3600)
 
 if __name__ == "__main__":
+    import traceback
+
     try:
         asyncio.run(main())
-    except Exception as e:
-        logger.error(f"Startup failed: {e}")
+    except Exception:
+        logger.error("🚨 Startup failed with exception:\n%s", traceback.format_exc())
