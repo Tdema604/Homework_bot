@@ -22,9 +22,16 @@ async def forward_message(update: Update, context: CallbackContext):
         target_id = context.bot_data["TARGET_CHAT_ID"]
         admin_id = context.bot_data["ADMIN_CHAT_ID"]
 
-        # Filter out non-homework messages
-        if message.text and not is_homework(message):
-            logger.info(f"📌 Ignored non-homework text: {message.text}")
+        # ✅ Filter everything through is_homework()
+        if not is_homework(message):
+            logger.info("🛑 Non-homework message blocked.")
+            return
+        if not is_homework(message):
+            logger.info("🛑 Non-homework message blocked.")
+            await context.bot.send_message(
+                chat_id=admin_id,
+                text=f"❌ Blocked message from @{user.username or user.id}"
+            )
             return
 
         media_type = "Unsupported"
