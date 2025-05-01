@@ -1,6 +1,6 @@
 from aiohttp import web
+from telegram import Update  # ✅ Proper import
 import logging
-from telegram import Update
 
 logger = logging.getLogger(__name__)
 
@@ -8,7 +8,7 @@ def setup_routes(app, bot, application):
     async def handle_webhook(request):
         try:
             data = await request.json()
-            update = Update.de_json(data, bot)
+            update = Update.de_json(data, bot)  # ✅ Correct usage
             await application.process_update(update)
             return web.Response(text="OK")
         except Exception as e:
@@ -18,6 +18,8 @@ def setup_routes(app, bot, application):
     async def healthcheck(request):
         return web.Response(text="Bot is alive!")
 
-    app.router.add_post("/webhook", handle_webhook)
+    # Accept POST on root (Render uses this), and GET for health check
+    app.router.add_post("/", handle_webhook)
     app.router.add_get("/", healthcheck)
+
     logger.info("🔌 Web routes set up successfully.")
