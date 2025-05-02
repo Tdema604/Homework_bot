@@ -17,7 +17,6 @@ load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 ALLOWED_SOURCE_CHAT_IDS = os.getenv("SOURCE_CHAT_IDS", "").split(",")
-TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
 ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
 PORT = int(os.getenv("PORT", 10000))
 
@@ -34,8 +33,8 @@ async def on_startup(app):
 
     # Store shared data
     application.bot_data["ALLOWED_SOURCE_CHAT_IDS"] = [int(id.strip()) for id in ALLOWED_SOURCE_CHAT_IDS if id.strip()]
-    application.bot_data["TARGET_CHAT_ID"] = TARGET_CHAT_ID
-    application.bot_data["ADMIN_CHAT_ID"] = ADMIN_CHAT_ID
+application.bot_data["ROUTE_MAP"] = get_route_map()    
+application.bot_data["ADMIN_CHAT_ID"] = ADMIN_CHAT_ID
 
     # Handlers
     application.add_handler(CommandHandler("start", start))
