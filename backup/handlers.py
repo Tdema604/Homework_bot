@@ -1,4 +1,4 @@
- [Meto Mother], [5/2/2025 7:59 PM]
+བསྟེན་འཛིན། [Meto Mother], [5/2/2025 7:59 PM]
 import logging
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -12,24 +12,24 @@ ROUTE_MAP = get_route_map()
 # /id command: show the chat ID
 async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
-    await update.message.reply_text(f" Chat ID: {chat.id}", parse_mode='Markdown')
+    await update.message.reply_text(f"🆔 Chat ID: {chat.id}", parse_mode='Markdown')
 
 # /start command: greet user
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    logger.info(f" /start from {user.username or user.id}")
-    await update.message.reply_text(" Hello! I'm your Homework Forwarder Bot. Drop homework, and Ill pass it along!")
+    logger.info(f"📥 /start from {user.username or user.id}")
+    await update.message.reply_text("👋 Hello! I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!")
 
 # /status command: check health
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    logger.info(f" /status from {user.username or user.id}")
+    logger.info(f"📥 /status from {user.username or user.id}")
     
     status_msg = (
-        " *Bot Status*\n"
-        f" Uptime: always-on (webhook)\n"
-        f" Active Routes: {len(ROUTE_MAP)} source-to-target mappings\n"
-        f" Admin Chat ID: {context.bot_data.get('ADMIN_CHAT_ID')}"
+        "✅ *Bot Status*\n"
+        f"• Uptime: always-on (webhook)\n"
+        f"• Active Routes: {len(ROUTE_MAP)} source-to-target mappings\n"
+        f"• Admin Chat ID: {context.bot_data.get('ADMIN_CHAT_ID')}"
     )
 
     await update.message.reply_text(status_msg, parse_mode="Markdown")
@@ -40,25 +40,25 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin_id = context.bot_data.get("ADMIN_CHAT_ID")
 
     if user.id != admin_id:
-        await update.message.reply_text(" Access denied. Only the admin can reload config.")
+        await update.message.reply_text("⛔️ Access denied. Only the admin can reload config.")
         return
 
     try:
         load_env()
         global ROUTE_MAP
         ROUTE_MAP = get_route_map()
-        logger.info(" Config and routes reloaded.")
-        await update.message.reply_text(" Config reloaded. New routes applied.")
+        logger.info("♻️ Config and routes reloaded.")
+        await update.message.reply_text("♻️ Config reloaded. New routes applied.")
     except Exception as e:
-        logger.exception(" Failed to reload config:")
-        await update.message.reply_text(" Failed to reload config.")
+        logger.exception("🚨 Failed to reload config:")
+        await update.message.reply_text("❌ Failed to reload config.")
 
 # Main message forwarding logic
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = update.message
         if not message:
-            logger.warning(" No message found.")
+            logger.warning("⚠️ No message found.")
             return
 
         source_id = message.chat_id
@@ -66,11 +66,11 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         admin_id = context.bot_data.get("ADMIN_CHAT_ID")
 
         if not target_id:
-            logger.warning(f" No target mapped for source chat ID: {source_id}")
+            logger.warning(f"⛔️ No target mapped for source chat ID: {source_id}")
             return
 
         if message.text and not is_homework(message):
-            logger.info(f" Ignored non-homework message: {message.text}")
+            logger.info(f"🚫 Ignored non-homework message: {message.text}")
             return
 
         caption = message.caption or ""
@@ -96,17 +96,17 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
             media_type = "Voice"
         else:
-            logger.warning(f" Unsupported message type: {message}")
+            logger.warning(f"⚠️ Unsupported message type: {message}")
             return
 
-        logger.info(f" Forwarded {media_type} from {source_id} to {target_id}.")
+        logger.info(f"✅ Forwarded {media_type} from {source_id} to {target_id}.")
 
- [Meto Mother], [5/2/2025 7:59 PM]
+བསྟེན་འཛིན། [Meto Mother], [5/2/2025 7:59 PM]
 # Notify admin
         await context.bot.send_message(
             chat_id=admin_id,
-            text=f" Forwarded {media_type} from {sender_name} (chat ID: {source_id})."
+            text=f"📤 Forwarded {media_type} from {sender_name} (chat ID: {source_id})."
         )
 
     except Exception as e:
-        logger.exception(f" Exception while forwarding message: {e}")
+        logger.exception(f"🚨 Exception while forwarding message: {e}")

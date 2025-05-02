@@ -9,7 +9,7 @@ def load_env():
     Loads environment variables from the .env file.
     """
     load_dotenv()
-    logger.info(" Environment variables loaded.")
+    logger.info("✅ Environment variables loaded.")
 
 def is_homework(message) -> bool:
     """
@@ -43,11 +43,11 @@ def get_route_map() -> dict[int, int]:
     """
     Loads the chat routing map from the ROUTE_MAP env variable.
     Example: -1001111:-1002222,-1003333:-1004444
-    Returns a dictionary of source  target chat IDs.
+    Returns a dictionary of source → target chat IDs.
     """
     load_dotenv()
     raw = os.getenv("ROUTE_MAP", "")
-    logger.info(f" RAW ROUTE_MAP: {raw}")
+    logger.info(f"📜 RAW ROUTE_MAP: {raw}")
     route_map = {}
 
     for pair in raw.split(","):
@@ -56,7 +56,7 @@ def get_route_map() -> dict[int, int]:
                 source, target = map(str.strip, pair.split(":"))
                 route_map[int(source)] = int(target)
             except ValueError:
-                logger.warning(f" Invalid ROUTE_MAP pair ignored: {pair}")
+                logger.warning(f"⚠️ Invalid ROUTE_MAP pair ignored: {pair}")
 
-    logger.info(f" Loaded ROUTE_MAP: {route_map}")
+    logger.info(f"🔁 Loaded ROUTE_MAP: {route_map}")
     return route_map

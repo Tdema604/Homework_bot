@@ -48,22 +48,22 @@ async def on_startup(app):
     await application.bot.set_webhook(url=WEBHOOK_URL)
     setup_routes(app, application.bot, application)
 
-    logger.info(" Bot initialized and webhook set.")
+    logger.info("✅ Bot initialized and webhook set.")
 
     # Send status update to admin
     try:
         route_map = get_route_map()
         await application.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
-            text=f" Bot restarted.\nRoutes: {len(route_map)} mapped.\nListening via webhook.",
+            text=f"✅ Bot restarted.\nRoutes: {len(route_map)} mapped.\nListening via webhook.",
         )
     except Exception as e:
-        logger.warning(f" Failed to send startup message to admin: {e}")
+        logger.warning(f"⚠️ Failed to send startup message to admin: {e}")
 
 # Register startup
 app.on_startup.append(on_startup)
 
 # Start web server
 if __name__ == "__main__":
-    logger.info(f" Running bot server on port {PORT}")
+    logger.info(f"🌍 Running bot server on port {PORT}")
     web.run_app(app, host="0.0.0.0", port=PORT)
