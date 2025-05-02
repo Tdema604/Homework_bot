@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
-logger = logging.getLogger(name)
+logger = logging.getLogger(_name_)
 
 # Load .env variables
 load_dotenv()
@@ -17,7 +17,7 @@ load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 ALLOWED_SOURCE_CHAT_IDS = os.getenv("SOURCE_CHAT_IDS", "").split(",")
-ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "0") or "0")
 PORT = int(os.getenv("PORT", 10000))  # Render default port
 
 # Validation
@@ -51,6 +51,6 @@ async def on_startup(app):
 app.on_startup.append(on_startup)
 
 # Start web server
-if name == "main":
+if_name_ == "_main_":
     logger.info(f"🌍 Running bot server on port {PORT}")
     web.run_app(app, host="0.0.0.0", port=PORT)
