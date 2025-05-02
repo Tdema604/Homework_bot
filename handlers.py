@@ -101,7 +101,6 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         logger.info(f" Forwarded {media_type} from {source_id} to {target_id}.")
 
- [Meto Mother], [5/2/2025 7:59 PM]
 # Notify admin
         await context.bot.send_message(
             chat_id=admin_id,
