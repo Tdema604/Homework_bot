@@ -1,17 +1,19 @@
 import os
 import logging
+from dotenv import load_dotenv  # ✅ new
+
 from aiohttp import web
 from telegram.ext import Application, MessageHandler, filters
 from handlers import forward_message, start
-from utils import load_env
 from web import setup_routes
 
 # Logging
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment
-load_env()
+# ✅ Load env
+load_dotenv()
+
 
 # ENV vars
 TOKEN = os.getenv("BOT_TOKEN")
