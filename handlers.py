@@ -4,23 +4,28 @@ from telegram.ext import ContextTypes
 from utils import is_homework, get_route_map
 
 logger = logging.getLogger(__name__)
+
+# Load ROUTE_MAP once at startup
 ROUTE_MAP = get_route_map()
 
+# /id command to check group or user chat ID
 async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"🆔 Chat ID: `{update.effective_chat.id}`", parse_mode='Markdown')
+    chat = update.effective_chat
+    await update.message.reply_text(f"🆔 Chat ID: `{chat.id}`", parse_mode='Markdown')
 
+# /start command to greet users
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    logger.info(f"📥 /start command from {user.username or user.id}")
     await update.message.reply_text("👋 Hello! I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!")
-    logger.info(f"📥 /start command from {update.effective_user.id}")
 
+# Main message forwarding logic
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         message = update.message
         if not message:
-            logger.warning("⚠️ No message found in update.")
+            logger.warning("⚠️ Update has no message content.")
             return
-
-        logger.info(f"📥 Incoming message detected: {message}")
 
         source_id = message.chat_id
         target_id = ROUTE_MAP.get(source_id)
@@ -30,13 +35,13 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             logger.warning(f"⛔ No target mapped for source chat ID: {source_id}")
             return
 
-        # Filter non-homework
+        # Filter spam and irrelevant content
         if message.text and not is_homework(message):
-            logger.info(f"📌 Ignored non-homework message: {message.text}")
+            logger.info(f"🚫 Ignored non-homework message: {message.text}")
             return
 
-        media_type = "Unknown"
         caption = message.caption or ""
+        media_type = "Unknown"
 
         if message.text:
             media_type = "Text"
@@ -57,16 +62,18 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             media_type = "Voice"
             await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
         else:
-            logger.warning(f"⛔ Unsupported message type: {message}")
+            logger.warning(f"⚠️ Unsupported message type received: {message}")
             return
 
         logger.info(f"✅ Forwarded {media_type} from {source_id} to {target_id}.")
 
         sender = update.effective_user
+        sender_name = f"@{sender.username}" if sender.username else f"user {sender.id}"
+
         await context.bot.send_message(
             chat_id=admin_id,
-            text=f"📤 Forwarded {media_type} from @{sender.username or sender.id} (chat {source_id})."
+            text=f"📤 Forwarded {media_type} from {sender_name} (chat ID: {source_id})."
         )
 
     except Exception as e:
-        logger.error(f"🚨 Error while forwarding: {e}")
+        logger.exception(f"🚨 Exception while forwarding message: {e}")
