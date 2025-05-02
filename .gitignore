@@ -1,4 +1,9 @@
+# 🔐 Never commit sensitive credentials
 .env
-_psycache_/
+
+# 🧠 Python cache
+__pycache__/
 *.pyc
+
+# 🧪 Virtual environment
 venv/
