@@ -1,4 +1,3 @@
- [Meto Mother], [5/2/2025 7:59 PM]
 import logging
 from telegram import Update
 from telegram.ext import ContextTypes
