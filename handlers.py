@@ -6,6 +6,9 @@ from utils import is_homework, get_route_map
 logger = logging.getLogger(__name__)
 ROUTE_MAP = get_route_map()
 
+async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"🆔 Chat ID: `{update.effective_chat.id}`", parse_mode='Markdown')
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("👋 Hello! I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!")
     logger.info(f"📥 /start command from {update.effective_user.id}")

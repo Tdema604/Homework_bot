@@ -41,6 +41,9 @@ async def on_startup(app):
     application.add_handler(MessageHandler(filters.COMMAND, start))
     application.add_handler(MessageHandler(filters.ALL, forward_message))
 
+    application.add_handler(CommandHandler("id", chat_id))
+
+
     await application.initialize()
     await application.bot.set_webhook(url=WEBHOOK_URL)
 
