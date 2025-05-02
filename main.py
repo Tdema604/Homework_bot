@@ -50,6 +50,8 @@ async def on_startup(app):
 app.on_startup.append(on_startup)
 
 # Run web app
+logger = logging.getLogger(name)
+
 if name == "main":
     logger.info(f"🌍 Running bot server on port {PORT}")
     web.run_app(app, host="0.0.0.0", port=PORT)
