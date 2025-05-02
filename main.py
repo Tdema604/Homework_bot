@@ -2,14 +2,14 @@ import os
 import logging
 from aiohttp import web
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-from handlers import forward_message, start, chat_id, status  # add 'status'
-from web import setup_routes
 from dotenv import load_dotenv
-from handlers import forward_message, start, chat_id, status, reload_config  # Add reload_config
+from handlers import forward_message, start, chat_id, status, reload_config
+from web import setup_routes
+from utils import get_route_map  # <- This was missing
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # <- Fixed from name to name
 
 # Load .env variables
 load_dotenv()
@@ -39,9 +39,9 @@ async def on_startup(app):
     # Telegram handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("id", chat_id))
-    application.add_handler(CommandHandler("status", status))  # Add status here
+    application.add_handler(CommandHandler("status", status))
+    application.add_handler(CommandHandler("reload", reload_config))
     application.add_handler(MessageHandler(filters.ALL, forward_message))
-    application.add_handler(CommandHandler("reload", reload_config))  # Register reload
 
     # Webhook and routes
     await application.initialize()
@@ -64,6 +64,6 @@ async def on_startup(app):
 app.on_startup.append(on_startup)
 
 # Start web server
-if __name__ == "__main__":
+if __name__ == "__main__":  # <- Fixed this line just in case
     logger.info(f" Running bot server on port {PORT}")
     web.run_app(app, host="0.0.0.0", port=PORT)
