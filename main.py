@@ -50,6 +50,6 @@ async def on_startup(app):
 app.on_startup.append(on_startup)
 
 # Launch server
-if name == "main":
+if__name__ == "_main_":
     logger.info(f"🌍 Running bot server on port {PORT}")
     web.run_app(app, host="0.0.0.0", port=PORT)
