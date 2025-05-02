@@ -24,14 +24,14 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         target_id = context.bot_data.get("TARGET_CHAT_ID")
         admin_id = context.bot_data.get("ADMIN_CHAT_ID")
 
-        # TEMP DEBUG: bypass filter to confirm flow
-        # Uncomment this block again later after confirming everything works
-        # if message.text and not is_homework(message):
-        #     logger.info(f"📌 Ignored non-homework message: {message.text}")
-        #     return
+        # ✅ Apply smart filtering
+        if message.text and not is_homework(message):
+            logger.info(f"📌 Ignored non-homework message: {message.text}")
+            return
 
         media_type = "Unknown"
 
+        # 📤 Forward different types of media
         if message.text:
             media_type = "Text"
             await context.bot.send_message(chat_id=target_id, text=message.text)
@@ -56,6 +56,7 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         logger.info(f"✅ Forwarded {media_type} from chat {source_id}.")
 
+        # 🛎 Notify admin
         sender = update.effective_user
         await context.bot.send_message(
             chat_id=admin_id,
