@@ -3,7 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from utils import is_homework, get_route_map, load_env
 
-logger = logging.getLogger(name)
+logger = logging.getLogger(__name__)
 
 # Load route map at startup
 ROUTE_MAP = get_route_map()
