@@ -1,31 +1,47 @@
+import os
 import re
-from telegram import Message
+import logging
+from dotenv import load_dotenv
 
-# Define your homework-related keywords
-HOMEWORK_KEYWORDS = [
-    "homework", "submit", "worksheet", "activity", "assignment",
-    "task", "question", "due", "work", "exercise", "date line", "deadline"
-]
+logger = logging.getLogger(__name__)
 
-def is_homework(message: Message) -> bool:
-    """
-    AI-style smart filter: checks if the message text or caption looks like homework.
-    """
-    content = message.text or message.caption
-    if not content:
+def load_env():
+    load_dotenv()
+    logger.info("✅ Environment variables loaded.")
+
+def is_homework(message):
+    if not message.text:
+        return True  # Non-text media is assumed to be homework
+
+    text = message.text.lower()
+
+    # Ignore common spam/phishing phrases
+    spam_phrases = ["click here", "free gift", "bonus", "subscribe", "win", ".icu", ".xyz", "offer"]
+    if any(phrase in text for phrase in spam_phrases):
         return False
 
-    # Normalize and lowercase
-    content = content.lower()
+    # Heuristic keywords to identify homework
+    homework_keywords = ["homework", "work", "exercise", "question", "notes", "submit", "worksheet", "assignment", "page", "chapter", "topic", "due"]
 
-    # Keyword match
-    for keyword in HOMEWORK_KEYWORDS:
-        if keyword in content:
-            return True
+    score = sum(1 for keyword in homework_keywords if keyword in text)
 
-    # Regex fallback: e.g., date line patterns like "submit by 3rd May"
-    date_line_pattern = r"(submit(ed)?|due)\s+(on\s+)?\d{1,2}(st|nd|rd|th)?\s+\w+"
-    if re.search(date_line_pattern, content):
+    if score >= 2 or len(text) > 25:
         return True
 
     return False
+
+def get_route_map():
+    raw = os.getenv("ROUTE_MAP", "")
+    pairs = raw.split(",")
+    route_map = {}
+
+    for pair in pairs:
+        if ":" in pair:
+            source, target = pair.split(":")
+            try:
+                route_map[int(source.strip())] = int(target.strip())
+            except ValueError:
+                logger.warning(f"⚠️ Invalid ROUTE_MAP pair ignored: {pair}")
+
+    logger.info(f"🔁 Loaded ROUTE_MAP: {route_map}")
+    return route_map
