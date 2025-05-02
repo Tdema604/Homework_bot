@@ -1,29 +1,31 @@
-import os
 import re
-from dotenv import load_dotenv
+from telegram import Message
 
-def load_env():
-    """Load environment variables from .env file."""
-    load_dotenv()
+# Define your homework-related keywords
+HOMEWORK_KEYWORDS = [
+    "homework", "submit", "worksheet", "activity", "assignment",
+    "task", "question", "due", "work", "exercise", "date line", "deadline"
+]
 
-def is_homework(message) -> bool:
-    """Heuristically determine if a message is likely a homework task."""
-    if not message.text:
-        return True  # allow media like photos, videos, PDFs, etc.
-
-    text = message.text.lower()
-
-    # ⛔️ Spammy link/URL check
-    if re.search(r"(https?://|www\.)", text):
+def is_homework(message: Message) -> bool:
+    """
+    AI-style smart filter: checks if the message text or caption looks like homework.
+    """
+    content = message.text or message.caption
+    if not content:
         return False
 
-    # ✅ Keywords that usually indicate homework or academic tasks
-    keywords = [
-        "homework", "classwork", "assignment", "exercise", "chapter", "worksheet",
-        "question", "write", "draw", "solve", "submit", "deadline", "pages",
-        "read", "math", "science", "english", "dzongkha", "project", "notes", "copy",
-        "home task", "task", "topic", "prepare", "revise", "answer"
-    ]
+    # Normalize and lowercase
+    content = content.lower()
 
-    # ✅ Look for at least one keyword
-    return any(word in text for word in keywords)
+    # Keyword match
+    for keyword in HOMEWORK_KEYWORDS:
+        if keyword in content:
+            return True
+
+    # Regex fallback: e.g., date line patterns like "submit by 3rd May"
+    date_line_pattern = r"(submit(ed)?|due)\s+(on\s+)?\d{1,2}(st|nd|rd|th)?\s+\w+"
+    if re.search(date_line_pattern, content):
+        return True
+
+    return False
