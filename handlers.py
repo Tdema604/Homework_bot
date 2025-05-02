@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 
 # /start command handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("👋 Hello! I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!")
+    await update.message.reply_text(
+        "👋 Hello! I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!"
+    )
     logger.info(f"📥 /start command from {update.effective_user.id}")
 
 # Smart message forwarding handler
@@ -24,39 +26,70 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         target_id = context.bot_data.get("TARGET_CHAT_ID")
         admin_id = context.bot_data.get("ADMIN_CHAT_ID")
 
-        # ✅ Apply smart filtering
-        if message.text and not is_homework(message):
-            logger.info(f"📌 Ignored non-homework message: {message.text}")
+        # Combine text and caption for filtering
+        text = message.text or message.caption
+        if text and not is_homework(message):
+            logger.info(f"📌 Ignored non-homework message: {text}")
             return
 
         media_type = "Unknown"
 
-        # 📤 Forward different types of media
+        # Forwarding logic
         if message.text:
             media_type = "Text"
             await context.bot.send_message(chat_id=target_id, text=message.text)
+
         elif message.photo:
             media_type = "Photo"
-            await context.bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id)
+            await context.bot.send_photo(
+                chat_id=target_id,
+                photo=message.photo[-1].file_id,
+                caption=message.caption
+            )
+
         elif message.video:
             media_type = "Video"
-            await context.bot.send_video(chat_id=target_id, video=message.video.file_id)
+            await context.bot.send_video(
+                chat_id=target_id,
+                video=message.video.file_id,
+                caption=message.caption
+            )
+
         elif message.document:
             media_type = "Document"
-            await context.bot.send_document(chat_id=target_id, document=message.document.file_id)
+            await context.bot.send_document(
+                chat_id=target_id,
+                document=message.document.file_id,
+                caption=message.caption
+            )
+
         elif message.audio:
             media_type = "Audio"
-            await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id)
+            await context.bot.send_audio(
+                chat_id=target_id,
+                audio=message.audio.file_id,
+                caption=message.caption
+            )
+
         elif message.voice:
             media_type = "Voice"
-            await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
+            await context.bot.send_voice(
+                chat_id=target_id,
+                voice=message.voice.file_id,
+                caption=message.caption
+            )
+
+        elif text:
+            # If it's only a caption with no media
+            media_type = "Caption Text"
+            await context.bot.send_message(chat_id=target_id, text=text)
+
         else:
             logger.warning(f"⛔ Unsupported message type: {message}")
             return
 
         logger.info(f"✅ Forwarded {media_type} from chat {source_id}.")
 
-        # 🛎 Notify admin
         sender = update.effective_user
         await context.bot.send_message(
             chat_id=admin_id,
