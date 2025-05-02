@@ -1,5 +1,10 @@
 import os
 import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+logger = logging.getLogger(name)
+logger = logging.getLogger(name)
 from aiohttp import web
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from handlers import forward_message, start, chat_id
@@ -8,7 +13,7 @@ from dotenv import load_dotenv
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
-logger = logging.getLogger(name)
+
 
 # Load environment variables
 load_dotenv()
