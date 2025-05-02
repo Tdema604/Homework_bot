@@ -6,26 +6,36 @@ from telegram.ext import Application
 logger = logging.getLogger(__name__)
 
 def setup_routes(app: web.Application, bot, telegram_app: Application):
-    # Webhook route
-    async def handle_webhook(request):
-        try:
-            data = await request.json()
-            logger.info(f"📡 Webhook request from IP: {request.remote}")
-            logger.info(f"📨 Webhook data: {data}")
+    # Webhook POST handler
+   async def handle_webhook(request):
+    try:
+        data = await request.json()
+        logger.info(f"📡 Webhook request from IP: {request.remote}")
+        update = Update.de_json(data, bot)
+
+        await telegram_app.process_update(update)
+        return web.Response(status=200, text="OK")
+
+    except Exception as e:
+        logger.exception("🔥 Error handling webhook:")
+        # If needed, add retry logic or logging to DB here
+        return web.Response(status=500, text="Webhook processing failed")
+            logger.debug(f"📨 Webhook data: {data}")
 
             update = Update.de_json(data, bot)
             await telegram_app.process_update(update)
 
-            return web.Response(status=200)
+            return web.Response(status=200, text="OK")
         except Exception as e:
-            logger.error(f"🔥 Webhook error: {e}")
+            logger.exception("🔥 Error handling webhook:")
             return web.Response(status=500, text="Webhook processing failed")
 
-    # Health check route
+    # Simple GET health check
     async def health_check(request):
-        return web.Response(text="✅ Bot is healthy", status=200)
+        return web.Response(text="✅ Bot is alive & well", status=200)
 
+    # Register the routes
     app.router.add_post("/", handle_webhook)
     app.router.add_get("/", health_check)
 
-    logger.info("✅ Routes registered for '/'")
+    logger.info("✅ Webhook and health routes registered.")

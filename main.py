@@ -2,9 +2,10 @@ import os
 import logging
 from aiohttp import web
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
-from handlers import forward_message, start, chat_id
+from handlers import forward_message, start, chat_id, status  # add 'status'
 from web import setup_routes
 from dotenv import load_dotenv
+from handlers import forward_message, start, chat_id, status, reload_config  # Add reload_config
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -38,7 +39,9 @@ async def on_startup(app):
     # Telegram handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("id", chat_id))
+    application.add_handler(CommandHandler("status", status))  # Add status here
     application.add_handler(MessageHandler(filters.ALL, forward_message))
+    application.add_handler(CommandHandler("reload", reload_config))  # Register reload
 
     # Webhook and routes
     await application.initialize()
@@ -46,6 +49,16 @@ async def on_startup(app):
     setup_routes(app, application.bot, application)
 
     logger.info("✅ Bot initialized and webhook set.")
+
+    # Send status update to admin
+    try:
+        route_map = get_route_map()
+        await application.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"✅ Bot restarted.\nRoutes: {len(route_map)} mapped.\nListening via webhook.",
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to send startup message to admin: {e}")
 
 # Register startup
 app.on_startup.append(on_startup)
