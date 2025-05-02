@@ -31,7 +31,9 @@ def is_homework(message):
     return False
 
 def get_route_map():
+    load_dotenv()  # ensure env is loaded here too
     raw = os.getenv("ROUTE_MAP", "")
+    logger.info(f"📜 RAW ROUTE_MAP: {raw}")
     pairs = raw.split(",")
     route_map = {}
 
@@ -45,3 +47,4 @@ def get_route_map():
 
     logger.info(f"🔁 Loaded ROUTE_MAP: {route_map}")
     return route_map
+
