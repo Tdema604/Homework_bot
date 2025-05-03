@@ -105,25 +105,25 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         logger.info(f"✅ Forwarded {media_type} from {source_id} to {target_id}.")
 
-        # Admin notification
-        if admin_id:
-           # Extract a short preview of the message content
-if message.caption:
-    preview = message.caption
-elif message.text:
-    preview = message.text
-else:
-    preview = ""
+        # Extract a short preview of the message content
+          if message.caption:
+          preview = message.caption
+          elif message.text:
+          preview = message.text
+          else:
+              preview = ""
 
-preview = escape_markdown(preview[:100])  # Shorten to 100 chars, escape Markdown
+              preview = escape_markdown(preview[:100])  # Shorten to 100 chars, escape Markdown
 
-await context.bot.send_message(
-    chat_id=admin_id,
-    text=(
-        f"{get_media_type_icon(message)} Forwarded *{media_type}* from {sender_name} (chat ID: `{source_id}`)\n"
-        f"📝 \"{preview}\""
-    ),
-    parse_mode="MarkdownV2"
+              await context.bot.send_message(
+              chat_id=admin_id,
+              text=(
+              f"{get_media_type_icon(message)} Forwarded *{media_type}* from {sender_name} (chat ID: `{source_id}`)\n"
+              f"📝 \"{preview}\""
+              ),
+             parse_mode="MarkdownV2"
+             )
+
 )
 
             )
