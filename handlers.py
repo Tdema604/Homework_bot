@@ -80,7 +80,7 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         media_type = None
 
         if message.text:
-            text = escape_markdown(message.text, version=2)
+            text = escape_markdown(message.text)
             await context.bot.send_message(chat_id=target_id, text=caption + text, parse_mode="MarkdownV2")
             media_type = "Text"
         elif message.photo:
