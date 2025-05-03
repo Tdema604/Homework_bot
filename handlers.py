@@ -101,21 +101,15 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"✅ Forwarded {media_type} from {source_id} to {target_id}.")
 
         # Short preview for admin notification
-        preview = ""
-        if message.caption:
-            preview = message.caption
-        elif message.text:
-            preview = message.text
-        preview = escape_markdown(preview[:100])
-
-        # Debugging the media type icon
-        media_icon = get_media_type_icon(message)
-        logger.debug(f"Media Icon: {media_icon}")
+        preview_raw = message.caption if message.caption else (message.text or "")
+        preview = escape_markdown(preview_raw[:100])
+        media_icon = escape_markdown(get_media_type_icon(message))
+        safe_source_id = escape_markdown(str(source_id))
 
         await context.bot.send_message(
             chat_id=admin_id,
             text=(
-                f"{media_icon} Forwarded *{media_type}* from {sender_name} (chat ID: `{source_id}`)\n"
+                f"{media_icon} Forwarded *{media_type}* from {sender_name} \chat ID: `{safe_source_id}`\\n"
                 f"📝 \"{preview}\""
             ),
             parse_mode="MarkdownV2"
@@ -128,5 +122,6 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if context.bot_data.get("ADMIN_CHAT_ID"):
             await context.bot.send_message(
                 chat_id=context.bot_data["ADMIN_CHAT_ID"],
-                text=f"❌ Error occurred during forwarding. Check logs for details.\nError Details: {error_details}",
-    )
+                text=f"❌ Error occurred during forwarding. Check logs for details.\nError Details: ```{escape_markdown(error_details)}```",
+                parse_mode="MarkdownV2"
+            )
