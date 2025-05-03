@@ -2,7 +2,7 @@ import os
 import logging
 from dotenv import load_dotenv
 
-logger = logging.getLogger(name)
+logger = logging.getLogger(__name__)
 
 def load_env():
     """
