@@ -121,8 +121,9 @@ aasync def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.exception("🚨 Exception while forwarding message:")
         if context.bot_data.get("ADMIN_CHAT_ID"):
-            await context.bot.send_message(
-                chat_id=context.bot_data["ADMIN_CHAT_ID"],
-                text=f"⚠️ Error forwarding message:\n{escape_markdown(str(e))}",
-                parse_mode="MarkdownV2"
+         await context.bot.send_message(
+            chat_id=admin_id,
+            text=f"📫 Forwarded *{media_type}* from {sender_name} (chat ID: {source_id})",
+            parse_mode="MarkdownV2"
+        )  # This should be the last parenthesis in this block
             )
