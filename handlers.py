@@ -1,141 +1,92 @@
+import os
 import logging
-from telegram import Update
-from telegram.ext import ContextTypes
-from utils import is_homework, get_route_map, load_env, get_media_type_icon, escape_markdown
+import re
+from dotenv import load_dotenv
+from telegram import Message
 
+# Correct logger name initialization
 logger = logging.getLogger(__name__)
-ROUTE_MAP = get_route_map()
 
-# /start command
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    logger.info(f"📥 /start from {user.username or user.id}")
-    await update.message.reply_text("👋 Hello! I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!")
+# Load environment variables
+def load_env():
+    load_dotenv()
+    logger.info("Environment variables loaded.")
 
-# /id command
-async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat = update.effective_chat
-    logger.info(f"📥 /id command from {update.effective_user.username or update.effective_user.id}")
-    await update.message.reply_text(f"🆔 Chat ID: {chat.id}", parse_mode='Markdown')
+# Load MarkdownV2 escape function
+def escape_markdown(text: str) -> str:
+    if not text:
+        return ""  # Return empty if no text is provided
+    return re.sub(r'([_*()[\]{}~`>#+\-=|.!])', r'\\\1', text)
 
-# /status command
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    logger.info(f"📥 /status from {user.username or user.id}")
+# Enhanced homework detection with spam filtering and keyword scoring
+def is_homework(message: Message) -> bool:
+    if not message.text:
+        return False  # Explicitly return False if no text is present
 
-    status_msg = (
-        "✅ *Bot Status*\n"
-        f"• Uptime: always-on (webhook)\n"
-        f"• Active Routes: {len(ROUTE_MAP)} source-to-target mappings\n"
-        f"• Admin Chat ID: {context.bot_data.get('ADMIN_CHAT_ID')}"
-    )
+    text = message.text.lower()
 
-    await update.message.reply_text(status_msg, parse_mode="Markdown")
+    # List of phrases considered as spam
+    spam_phrases = [
+        "click here", "free gift", "bonus", "subscribe",
+        "win", ".icu", ".xyz", "offer", "buy now", "cash prize"
+    ]
+    # If any of the spam phrases are found, ignore the message
+    if any(phrase in text for phrase in spam_phrases):
+        return False
 
-# /reload command
-async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    admin_id = context.bot_data.get("ADMIN_CHAT_ID")
+    # Strong keywords related to homework
+    strong_keywords = [
+        "homework", "assignment", "worksheet", "submit",
+        "classwork", "question", "due", "test", "exam",
+        "page", "chapter", "topic", "notes", "activity", "class test"
+    ]
+    # Weak keywords that might relate to homework
+    weak_keywords = [
+        "work", "read", "write", "draw", "solve", "fill",
+        "copy", "prepare", "practice", "home task"
+    ]
 
-    if user.id != admin_id:
-        logger.warning(f"⛔️ Unauthorized access attempt for /reload by {user.username or user.id}")
-        await update.message.reply_text("⛔️ Access denied. Only the admin can reload config.")
-        return
+    # Count hits for strong and weak keywords
+    strong_hits = sum(1 for word in strong_keywords if word in text)
+    weak_hits = sum(1 for word in weak_keywords if word in text)
+    total_score = (strong_hits * 2) + weak_hits
 
-    try:
-        load_env()
-        global ROUTE_MAP
-        ROUTE_MAP = get_route_map()
-        logger.info("♻️ Config and routes reloaded successfully.")
-        await update.message.reply_text("♻️ Config reloaded. New routes applied.")
-    except Exception as e:
-        logger.exception("🚨 Failed to reload config:")
-        await update.message.reply_text("❌ Failed to reload config.")
+    # Specific hints like "page", "submit", "q.", etc.
+    hints = ["page", "submit", "due", "q.", "ex.", "exercise", "copy this"]
+    pattern_hits = sum(1 for h in hints if h in text)
 
-# Main message forwarding logic
-async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        message = update.message
-        if not message:
-            logger.warning("⚠️ No message found in the update.")
-            return
+    # If total score or pattern hits meet threshold, it's considered homework
+    return total_score + pattern_hits >= 3 or len(text) > 50
 
-        source_id = message.chat_id
-        target_id = context.bot_data["ROUTE_MAP"].get(source_id)
-        admin_id = context.bot_data.get("ADMIN_CHAT_ID")
+# Define media type icons based on message content
+def get_media_type_icon(message: Message) -> str:
+    if message.text:
+        return "📝 "  # Text message
+    elif message.photo:
+        return "📸 "  # Photo message
+    elif message.document:
+        return "📄 "  # Document message
+    elif message.video:
+        return "📹 "  # Video message
+    elif message.voice:
+        return "🎤 "  # Voice message
+    else:
+        return "🔁 "  # Default icon for other media types
 
-        if not target_id:
-            logger.warning(f"⛔️ No target mapped for source chat ID: {source_id}")
-            return
+# Function to get the route map from environment variable
+def get_route_map() -> dict:
+    load_dotenv()  # Load environment variables
+    raw = os.getenv("ROUTE_MAP", "")  # Fetch route map from .env
+    logger.info(f"RAW ROUTE_MAP: {raw}")
+    route_map = {}
 
-        if message.text and not is_homework(message):
-            logger.info(f"🚫 Ignored non-homework message from {source_id}: {message.text}")
-            return
+    for pair in raw.split(","):  # Iterate over each pair
+        if ":" in pair:
+            try:
+                source, target = map(str.strip, pair.split(":"))
+                route_map[int(source)] = int(target)  # Map source to target
+            except ValueError:
+                logger.warning(f"Invalid ROUTE_MAP pair ignored: {pair}")
 
-        caption = escape_markdown(message.caption or "")
-        sender = update.effective_user
-        sender_name_raw = f"@{sender.username}" if sender.username else f"user {sender.id}"
-        sender_name = escape_markdown(sender_name_raw)
-
-
-        media_type = None
-
-        if message.text:
-            text = escape_markdown(message.text)
-            await context.bot.send_message(chat_id=target_id, text=caption + text, parse_mode="MarkdownV2")
-            media_type = "Text"
-        elif message.photo:
-            await context.bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id, caption=caption, parse_mode="MarkdownV2")
-            media_type = "Photo"
-        elif message.video:
-            await context.bot.send_video(chat_id=target_id, video=message.video.file_id, caption=caption, parse_mode="MarkdownV2")
-            media_type = "Video"
-        elif message.document:
-            await context.bot.send_document(chat_id=target_id, document=message.document.file_id, caption=caption, parse_mode="MarkdownV2")
-            media_type = "Document"
-        elif message.audio:
-            await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=caption, parse_mode="MarkdownV2")
-            media_type = "Audio"
-        elif message.voice:
-            await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
-            media_type = "Voice"
-        else:
-            logger.warning(f"⚠️ Unsupported message type from {source_id}: {message}")
-            return
-
-        logger.info(f"✅ Forwarded {media_type} from {source_id} to {target_id}.")
-
-        # Extract a short preview of the message content
-          if message.caption:
-          preview = message.caption
-          elif message.text:
-          preview = message.text
-          else:
-              preview = ""
-
-              preview = escape_markdown(preview[:100])  # Shorten to 100 chars, escape Markdown
-
-              await context.bot.send_message(
-              chat_id=admin_id,
-              text=(
-              f"{get_media_type_icon(message)} Forwarded *{media_type}* from {sender_name} (chat ID: `{source_id}`)\n"
-              f"📝 \"{preview}\""
-              ),
-             parse_mode="MarkdownV2"
-             )
-
-)
-
-            )
-
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        logger.error(f"🚨 Exception while forwarding message:\n{error_details}")
-
-        if context.bot_data.get("ADMIN_CHAT_ID"):
-            await context.bot.send_message(
-                chat_id=context.bot_data["ADMIN_CHAT_ID"],
-                text=escape_markdown(f"📫 Forwarded *{media_type}* from {sender_name} (chat ID: {source_id})"),
-                parse_mode="MarkdownV2"
-            )
+    logger.info(f"Loaded ROUTE_MAP: {route_map}")
+    return route_map
