@@ -80,21 +80,20 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sender_name = f"@{sender.username}" if sender.username else f"user {sender.id}"
 
         # Forwarding different media types
-        if message.text:
-            await context.bot.send_message(chat_id=target_id, text=caption + message.text)
+        if message.text and not message.caption:
+            await context.bot.send_message(chat_id=target_id, text=message.text)
             media_type = "Text"
         elif message.photo:
-            await context.bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id, caption=caption)
+            await context.bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id, caption=message.caption)
             media_type = "Photo"
         elif message.video:
-            await context.bot.send_video(chat_id=target_id, video=message.video.file_id, caption=caption)
+            await context.bot.send_video(chat_id=target_id, video=message.video.file_id, caption=message.caption)
             media_type = "Video"
         elif message.document:
-            await context.bot.send_document(chat_id=target_id, document=message.document.file_id, caption=caption)
-
-media_type = "Document"
+            await context.bot.send_document(chat_id=target_id, document=message.document.file_id, caption=message.caption)
+            media_type = "Document"
         elif message.audio:
-            await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=caption)
+            await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=message.caption)
             media_type = "Audio"
         elif message.voice:
             await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
