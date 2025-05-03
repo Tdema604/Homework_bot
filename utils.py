@@ -12,11 +12,11 @@ def load_env():
     load_dotenv()
     logger.info("Environment variables loaded.")
 
-# Load MarkdownV2
+# Load MarkdownV2 escape function
 def escape_markdown(text: str) -> str:
     if not text:
         return ""
-    return re.sub(r'([_*()~`>#+\-=|{}.!])', r'\\\1', text)
+    return re.sub(r'([_*()[\]{}~`>#+\-=|.!])', r'\\\1', text)
 
 # Enhanced homework detection with spam filtering and keyword scoring
 def is_homework(message: Message) -> bool:
