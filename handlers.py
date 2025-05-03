@@ -75,7 +75,8 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption = escape_markdown(message.caption or "")
         sender = update.effective_user
         sender_name_raw = f"@{sender.username}" if sender.username else f"user {sender.id}"
-        sender_name = escape_markdown(sender_name_raw, version=2)
+        sender_name = escape_markdown(sender_name_raw)
+
 
         media_type = None
 
@@ -108,7 +109,7 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if admin_id:
             await context.bot.send_message(
                 chat_id=admin_id,
-                text=escape_markdown(f"📫 Forwarded *{media_type}* from {sender_name} (chat ID: {source_id})", version=2),
+                text=escape_markdown(f"📫 Forwarded *{media_type}* from {sender_name} (chat ID: {source_id})"),
                 parse_mode="MarkdownV2"
             )
 
