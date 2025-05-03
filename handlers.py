@@ -72,7 +72,7 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.info(f"🚫 Ignored non-homework message from {source_id}: {message.text}")
             return
 
-        caption = escape_markdown(message.caption or "", version=2)
+        caption = escape_markdown(message.caption or "")
         sender = update.effective_user
         sender_name_raw = f"@{sender.username}" if sender.username else f"user {sender.id}"
         sender_name = escape_markdown(sender_name_raw, version=2)
@@ -120,6 +120,6 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if context.bot_data.get("ADMIN_CHAT_ID"):
             await context.bot.send_message(
                 chat_id=context.bot_data["ADMIN_CHAT_ID"],
-                text=escape_markdown(f"⚠️ Error forwarding message:\n{error_details}", version=2),
+                text=escape_markdown(f"📫 Forwarded *{media_type}* from {sender_name} (chat ID: {source_id})"),
                 parse_mode="MarkdownV2"
             )

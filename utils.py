@@ -15,8 +15,10 @@ def load_env():
 # Load MarkdownV2 escape function
 def escape_markdown(text: str) -> str:
     if not text:
-        return ""  # Return empty if no text is provided
-    return re.sub(r'([_*()[\]{}~`>#+\-=|.!])', r'\\\1', text)
+        return ""
+    # Escape characters required by MarkdownV2
+    escape_chars = r"_*[]()~`>#+-=|{}.!"
+    return ''.join(['\\' + c if c in escape_chars else c for c in text])
 
 # Enhanced homework detection with spam filtering and keyword scoring
 def is_homework(message: Message) -> bool:
