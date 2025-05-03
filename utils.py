@@ -2,7 +2,7 @@ import os
 import logging
 from dotenv import load_dotenv
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(name)
 
 def load_env():
     """
@@ -13,31 +13,43 @@ def load_env():
 
 def is_homework(message) -> bool:
     """
-    Determines whether a message is likely to be homework.
-    Uses keyword heuristics and spam filtering.
+    Smarter homework detector using keyword scoring and pattern heuristics.
     """
     if not message.text:
-        return True  # Assume non-text (e.g., image, doc) is homework
+        return True  # Non-text content is often homework (images, docs, etc.)
 
     text = message.text.lower()
 
     # Block known spammy content
     spam_phrases = [
         "click here", "free gift", "bonus", "subscribe",
-        "win", ".icu", ".xyz", "offer"
+        "win", ".icu", ".xyz", "offer", "buy now", "cash prize"
     ]
     if any(phrase in text for phrase in spam_phrases):
         return False
 
-    # Detect homework-style content
-    homework_keywords = [
-        "homework", "work", "exercise", "question", "notes",
-        "submit", "worksheet", "assignment", "page",
-        "chapter", "topic", "due", "class test"  
+    # Homework keyword banks
+    strong_keywords = [
+        "homework", "assignment", "worksheet", "submit",
+        "classwork", "question", "due", "test", "exam",
+        "page", "chapter", "topic", "notes", "activity"
     ]
-    score = sum(1 for keyword in homework_keywords if keyword in text)
 
-    return score >= 2 or len(text) > 25
+    weak_keywords = [
+        "work", "read", "write", "draw", "solve", "fill",
+        "copy", "prepare", "practice", "home task"
+    ]
+
+    # Scoring logic
+    strong_hits = sum(1 for word in strong_keywords if word in text)
+    weak_hits = sum(1 for word in weak_keywords if word in text)
+    total_score = (strong_hits * 2) + weak_hits
+
+    # Pattern-based hinting (e.g., "Page 15 Q.3", "submit by Monday")
+    hints = ["page", "submit", "due", "q.", "ex.", "exercise", "copy this"]
+    pattern_hits = sum(1 for h in hints if h in text)
+
+    return total_score + pattern_hits >= 3 or len(text) > 50
 
 def get_route_map() -> dict[int, int]:
     """
