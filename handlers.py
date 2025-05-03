@@ -123,7 +123,7 @@ aasync def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if context.bot_data.get("ADMIN_CHAT_ID"):
          await context.bot.send_message(
             chat_id=admin_id,
-            text=f"📫 Forwarded *{media_type}* from {sender_name} (chat ID: {source_id})",
+            text=escape_markdown(f"📫 Forwarded *{media_type}* from {sender_name} (chat ID: {source_id})"),
             parse_mode="MarkdownV2"
         )  # This should be the last parenthesis in this block
             )
