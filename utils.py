@@ -42,7 +42,7 @@ def is_homework(message) -> bool:
 def get_route_map() -> dict[int, int]:
     """
     Loads the chat routing map from the ROUTE_MAP env variable.
-    Example: -1001111:-1002222,-1003333:-1004444
+    Example: -1002604477249:-1002589235777,-1002653845682:-1002594882166
     Returns a dictionary of source  target chat IDs.
     """
     load_dotenv()
