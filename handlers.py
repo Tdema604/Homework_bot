@@ -9,17 +9,17 @@ ROUTE_MAP = get_route_map()
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello! I'm your Homework Forwarder Bot.")
+    await update.message.reply_text("📚 Hello! I'm your Homework Forwarder Bot. Use me to bridge students and parents.")
 
 # /id
 async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
-    await update.message.reply_text(f"Chat ID: {chat.id}", parse_mode="Markdown")
+    await update.message.reply_text(f"🆔 Chat ID: {chat.id}", parse_mode="Markdown")
 
 # /status
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        f"Bot is running.\nMapped routes: {len(ROUTE_MAP)}",
+        f"🌏 Bot is online and working.\n🔁 Active routes: {len(ROUTE_MAP)}",
         parse_mode="Markdown"
     )
 
@@ -27,22 +27,22 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user.id != context.bot_data.get("ADMIN_CHAT_ID"):
-        return await update.message.reply_text("Access denied.")
+        return await update.message.reply_text("⚠️ Access denied.")
 
     try:
         load_env()
         global ROUTE_MAP
         ROUTE_MAP = get_route_map()
-        await update.message.reply_text("Route map reloaded.")
+        await update.message.reply_text("♻️ Config reloaded. New routes loaded.")
     except Exception as e:
         logger.exception("Reload failed")
-        await update.message.reply_text("Failed to reload config.")
+        await update.message.reply_text("❌ Failed to reload config.")
 
 # /addroutes
 async def addroutes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user.id != context.bot_data.get("ADMIN_CHAT_ID"):
-        return await update.message.reply_text("Access denied.")
+        return await update.message.reply_text("⚠️ Access denied.")
 
     text = update.message.text.replace("/addroutes", "").strip()
     global ROUTE_MAP
@@ -61,7 +61,7 @@ async def addroutes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def removeroutes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     if user.id != context.bot_data.get("ADMIN_CHAT_ID"):
-        return await update.message.reply_text("Access denied.")
+        return await update.message.reply_text("⚠️ Access denied.")
 
     text = update.message.text.replace("/removeroutes", "").strip()
     global ROUTE_MAP
@@ -111,10 +111,10 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             media_type = "Photo"
         elif message.video:
             await context.bot.send_video(
-                chat_id=target_id,
-                video=message.video.file_id,
 
-caption=caption
+chat_id=target_id,
+                video=message.video.file_id,
+                caption=caption
             )
             media_type = "Video"
         elif message.document:
@@ -140,7 +140,8 @@ caption=caption
 
         await context.bot.send_message(
             chat_id=admin_id,
-            text=f"Forwarded {media_type} from {sender_name} (chat ID: {source_id})"
+            text=f"📫 Forwarded {media_type} from {sender_name} (chat ID: {source_id})",
+            parse_mode="Markdown"
         )
     except Exception as e:
         logger.exception("Exception while forwarding message:")
