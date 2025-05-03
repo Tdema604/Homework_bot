@@ -61,7 +61,7 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         source_id = message.chat_id
-        target_id = ROUTE_MAP.get(source_id)
+        target_id = context.bot_data["ROUTE_MAP"].get(source_id)
         admin_id = context.bot_data.get("ADMIN_CHAT_ID")
 
         if not target_id:
