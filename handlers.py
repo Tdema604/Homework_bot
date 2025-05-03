@@ -125,4 +125,4 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 chat_id=context.bot_data["ADMIN_CHAT_ID"],
                 text="❌ Error occurred during forwarding. Check logs for details.",
-            )
+    )
