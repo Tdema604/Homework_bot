@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 from telegram.helpers import escape_markdown 
 from utils import is_homework, get_route_map, load_env, get_media_type_icon
 # Setting up the logger
-logger = logging.getLogger(name)
+logger = logging.getLogger(__name__)
 # Load route map at startup
 ROUTE_MAP = get_route_map()
 # /start command: greet user
