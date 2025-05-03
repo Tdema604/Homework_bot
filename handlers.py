@@ -53,7 +53,7 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Failed to reload config.")
 
 # Main message forwarding logic
-async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+aasync def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = update.message
         if not message:
@@ -80,7 +80,7 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         media_type = None
 
         if message.text:
-            text = escape_markdown(message.text)
+            text = escape_markdown(message.text)  # Ensure text is escaped here
             await context.bot.send_message(chat_id=target_id, text=caption + text)
             media_type = "Text"
         elif message.photo:
@@ -103,10 +103,20 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         logger.info(f"✅ Forwarded {media_type} from {source_id} to {target_id}.")
+        # Admin notification with escaped markdown
         await context.bot.send_message(
             chat_id=admin_id,
             text=f"📫 Forwarded *{media_type}* from {sender_name} (chat ID: {source_id})",
             parse_mode="MarkdownV2"
+        )
+    except Exception as e:
+        logger.exception("🚨 Exception while forwarding message:")
+        if context.bot_data.get("ADMIN_CHAT_ID"):
+            await context.bot.send_message(
+                chat_id=context.bot_data["ADMIN_CHAT_ID"],
+                text=f"⚠️ Error forwarding message:\n{escape_markdown(str(e))}",
+                parse_mode="MarkdownV2"
+            )
         )
     except Exception as e:
         logger.exception("🚨 Exception while forwarding message:")
