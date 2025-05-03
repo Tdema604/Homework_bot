@@ -1,14 +1,17 @@
 import os
 import logging
 from dotenv import load_dotenv
+from telegram import Message
 
 logger = logging.getLogger(__name__)
 
+# Load environment variables
 def load_env():
     load_dotenv()
     logger.info("Environment variables loaded.")
 
-def is_homework(message) -> bool:
+# Enhanced homework detection with spam filtering and keyword scoring
+def is_homework(message: Message) -> bool:
     if not message.text:
         return True
 
@@ -40,11 +43,23 @@ def is_homework(message) -> bool:
 
     return total_score + pattern_hits >= 3 or len(text) > 50
 
-def get_route_map() -> dict[int, int]:
-    """
-    Loads the chat routing map from the ROUTE_MAP env variable.
-    Example: -1002604477249:-1002589235777,-1002653845682:-1002594882166
-    """
+# Define media type icons based on message content
+def get_media_type_icon(message: Message) -> str:
+    if message.text:
+        return "📝 "
+    elif message.photo:
+        return "📸 "
+    elif message.document:
+        return "📄 "
+    elif message.video:
+        return "📹 "
+    elif message.voice:
+        return "🎤 "
+    else:
+        return "🔁 "  # Default icon for other media types
+
+# Function to get the route map from environment variable
+def get_route_map() -> dict:
     load_dotenv()
     raw = os.getenv("ROUTE_MAP", "")
     logger.info(f"RAW ROUTE_MAP: {raw}")
