@@ -33,7 +33,7 @@ def is_homework(message) -> bool:
     homework_keywords = [
         "homework", "work", "exercise", "question", "notes",
         "submit", "worksheet", "assignment", "page",
-        "chapter", "topic", "due"
+        "chapter", "topic", "due", "class test"  
     ]
     score = sum(1 for keyword in homework_keywords if keyword in text)
 
