@@ -108,21 +108,25 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             preview = message.text
         preview = escape_markdown(preview[:100])
 
+        # Debugging the media type icon
+        media_icon = get_media_type_icon(message)
+        logger.debug(f"Media Icon: {media_icon}")
+
         await context.bot.send_message(
             chat_id=admin_id,
             text=(
-                f"{get_media_type_icon(message)} Forwarded *{media_type}* from {sender_name} (chat ID: `{source_id}`)\n"
+                f"{media_icon} Forwarded *{media_type}* from {sender_name} (chat ID: `{source_id}`)\n"
                 f"📝 \"{preview}\""
             ),
             parse_mode="MarkdownV2"
         )
 
-    except Exception:
+    except Exception as e:
         import traceback
         error_details = traceback.format_exc()
         logger.error(f"🚨 Exception while forwarding message:\n{error_details}")
         if context.bot_data.get("ADMIN_CHAT_ID"):
             await context.bot.send_message(
                 chat_id=context.bot_data["ADMIN_CHAT_ID"],
-                text="❌ Error occurred during forwarding. Check logs for details.",
+                text=f"❌ Error occurred during forwarding. Check logs for details.\nError Details: {error_details}",
     )
