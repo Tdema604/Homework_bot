@@ -1,53 +1,68 @@
 import os
 import logging
 from dotenv import load_dotenv
+from telegram import Message
 
 logger = logging.getLogger(__name__)
 
+# Load environment variables
 def load_env():
-    """
-    Loads environment variables from the .env file.
-    """
     load_dotenv()
-    logger.info("✅ Environment variables loaded.")
+    logger.info("Environment variables loaded.")
 
-def is_homework(message) -> bool:
-    """
-    Determines whether a message is likely to be homework.
-    Uses keyword heuristics and spam filtering.
-    """
+# Enhanced homework detection with spam filtering and keyword scoring
+def is_homework(message: Message) -> bool:
     if not message.text:
-        return True  # Assume non-text (e.g., image, doc) is homework
+        return True
 
     text = message.text.lower()
 
-    # Block known spammy content
     spam_phrases = [
         "click here", "free gift", "bonus", "subscribe",
-        "win", ".icu", ".xyz", "offer"
+        "win", ".icu", ".xyz", "offer", "buy now", "cash prize"
     ]
     if any(phrase in text for phrase in spam_phrases):
         return False
 
-    # Detect homework-style content
-    homework_keywords = [
-        "homework", "work", "exercise", "question", "notes",
-        "submit", "worksheet", "assignment", "page",
-        "chapter", "topic", "due"
+    strong_keywords = [
+        "homework", "assignment", "worksheet", "submit",
+        "classwork", "question", "due", "test", "exam",
+        "page", "chapter", "topic", "notes", "activity", "class test"
     ]
-    score = sum(1 for keyword in homework_keywords if keyword in text)
+    weak_keywords = [
+        "work", "read", "write", "draw", "solve", "fill",
+        "copy", "prepare", "practice", "home task"
+    ]
 
-    return score >= 2 or len(text) > 25
+    strong_hits = sum(1 for word in strong_keywords if word in text)
+    weak_hits = sum(1 for word in weak_keywords if word in text)
+    total_score = (strong_hits * 2) + weak_hits
 
-def get_route_map() -> dict[int, int]:
-    """
-    Loads the chat routing map from the ROUTE_MAP env variable.
-    Example: -1001111:-1002222,-1003333:-1004444
-    Returns a dictionary of source → target chat IDs.
-    """
+    hints = ["page", "submit", "due", "q.", "ex.", "exercise", "copy this"]
+    pattern_hits = sum(1 for h in hints if h in text)
+
+    return total_score + pattern_hits >= 3 or len(text) > 50
+
+# Define media type icons based on message content
+def get_media_type_icon(message: Message) -> str:
+    if message.text:
+        return "📝 "
+    elif message.photo:
+        return "📸 "
+    elif message.document:
+        return "📄 "
+    elif message.video:
+        return "📹 "
+    elif message.voice:
+        return "🎤 "
+    else:
+        return "🔁 "  # Default icon for other media types
+
+# Function to get the route map from environment variable
+def get_route_map() -> dict:
     load_dotenv()
     raw = os.getenv("ROUTE_MAP", "")
-    logger.info(f"📜 RAW ROUTE_MAP: {raw}")
+    logger.info(f"RAW ROUTE_MAP: {raw}")
     route_map = {}
 
     for pair in raw.split(","):
@@ -56,7 +71,7 @@ def get_route_map() -> dict[int, int]:
                 source, target = map(str.strip, pair.split(":"))
                 route_map[int(source)] = int(target)
             except ValueError:
-                logger.warning(f"⚠️ Invalid ROUTE_MAP pair ignored: {pair}")
+                logger.warning(f"Invalid ROUTE_MAP pair ignored: {pair}")
 
-    logger.info(f"🔁 Loaded ROUTE_MAP: {route_map}")
+    logger.info(f"Loaded ROUTE_MAP: {route_map}")
     return route_map

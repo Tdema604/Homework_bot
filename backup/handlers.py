@@ -1,18 +1,13 @@
-བསྟེན་འཛིན། [Meto Mother], [5/2/2025 7:59 PM]
 import logging
 from telegram import Update
 from telegram.ext import ContextTypes
-from utils import is_homework, get_route_map, load_env
+from utils import is_homework, get_route_map, load_env, get_media_type_icon
 
-logger = logging.getLogger(name)
+# Setting up the logger
+logger = logging.getLogger(__name__)
 
 # Load route map at startup
 ROUTE_MAP = get_route_map()
-
-# /id command: show the chat ID
-async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat = update.effective_chat
-    await update.message.reply_text(f"🆔 Chat ID: {chat.id}", parse_mode='Markdown')
 
 # /start command: greet user
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -20,7 +15,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"📥 /start from {user.username or user.id}")
     await update.message.reply_text("👋 Hello! I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!")
 
-# /status command: check health
+# /id command: show the chat ID
+async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    logger.info(f"📥 /id command from {update.effective_user.username or update.effective_user.id}")
+    await update.message.reply_text(f"🆔 Chat ID: {chat.id}", parse_mode='Markdown')
+
+# /status command: check bot health
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"📥 /status from {user.username or user.id}")
@@ -40,6 +41,7 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin_id = context.bot_data.get("ADMIN_CHAT_ID")
 
     if user.id != admin_id:
+        logger.warning(f"⛔️ Unauthorized access attempt for /reload by {user.username or user.id}")
         await update.message.reply_text("⛔️ Access denied. Only the admin can reload config.")
         return
 
@@ -47,7 +49,7 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
         load_env()
         global ROUTE_MAP
         ROUTE_MAP = get_route_map()
-        logger.info("♻️ Config and routes reloaded.")
+        logger.info("♻️ Config and routes reloaded successfully.")
         await update.message.reply_text("♻️ Config reloaded. New routes applied.")
     except Exception as e:
         logger.exception("🚨 Failed to reload config:")
@@ -58,7 +60,7 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = update.message
         if not message:
-            logger.warning("⚠️ No message found.")
+            logger.warning("⚠️ No message found in the update.")
             return
 
         source_id = message.chat_id
@@ -70,15 +72,16 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if message.text and not is_homework(message):
-            logger.info(f"🚫 Ignored non-homework message: {message.text}")
+            logger.info(f"🚫 Ignored non-homework message from {source_id}: {message.text}")
             return
 
         caption = message.caption or ""
         sender = update.effective_user
         sender_name = f"@{sender.username}" if sender.username else f"user {sender.id}"
 
+        # Forwarding different media types
         if message.text:
-            await context.bot.send_message(chat_id=target_id, text=message.text)
+            await context.bot.send_message(chat_id=target_id, text=caption + message.text)
             media_type = "Text"
         elif message.photo:
             await context.bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id, caption=caption)
@@ -88,7 +91,8 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             media_type = "Video"
         elif message.document:
             await context.bot.send_document(chat_id=target_id, document=message.document.file_id, caption=caption)
-            media_type = "Document"
+
+media_type = "Document"
         elif message.audio:
             await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=caption)
             media_type = "Audio"
@@ -96,17 +100,15 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
             media_type = "Voice"
         else:
-            logger.warning(f"⚠️ Unsupported message type: {message}")
+            logger.warning(f"⚠️ Unsupported message type from {source_id}: {message}")
             return
 
         logger.info(f"✅ Forwarded {media_type} from {source_id} to {target_id}.")
-
-བསྟེན་འཛིན། [Meto Mother], [5/2/2025 7:59 PM]
-# Notify admin
+        # Admin notification with media type
         await context.bot.send_message(
             chat_id=admin_id,
-            text=f"📤 Forwarded {media_type} from {sender_name} (chat ID: {source_id})."
+            text=f"📫 Forwarded {media_type} from {sender_name} (chat ID: {source_id})",
+            parse_mode="Markdown"
         )
-
     except Exception as e:
         logger.exception(f"🚨 Exception while forwarding message: {e}")

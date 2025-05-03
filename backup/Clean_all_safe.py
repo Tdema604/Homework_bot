@@ -13,7 +13,7 @@ def clean_file(filepath, backup_folder):
     with open(filepath, "w", encoding="utf-8") as f:
         f.writelines(clean_lines)
 
-    print(f"✅ Cleaned: {filepath} (Backup saved to: {backup_path})")
+    print(f" Cleaned: {filepath} (Backup saved to: {backup_path})")
 
 def clean_all_py_files(folder):
     backup_folder = os.path.join(folder, "backup")
@@ -29,4 +29,4 @@ def clean_all_py_files(folder):
 if __name__ == "__main__":
     folder = "."  # Current folder
     clean_all_py_files(folder)
-    print("🎉 All .py files cleaned with backup.")
+    print(" All .py files cleaned with backup.")

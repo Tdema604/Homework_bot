@@ -9,7 +9,7 @@ load_env()
 # Fetch required environment variables
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not TOKEN:
-    raise ValueError("❌ Telegram bot token is missing from environment variables.")
+    raise ValueError(" Telegram bot token is missing from environment variables.")
 
 # Initialize the bot application
 application = ApplicationBuilder().token(TOKEN).build()
