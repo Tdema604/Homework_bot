@@ -15,69 +15,76 @@ def load_env():
 # Load MarkdownV2 escape function
 def escape_markdown(text: str) -> str:
     if not text:
-        return ""
+        return ""  # Return empty if no text is provided
     return re.sub(r'([_*()[\]{}~`>#+\-=|.!])', r'\\\1', text)
 
 # Enhanced homework detection with spam filtering and keyword scoring
 def is_homework(message: Message) -> bool:
     if not message.text:
-        return False  # Changed to return False explicitly if no text is present.
+        return False  # Explicitly return False if no text is present
 
     text = message.text.lower()
 
+    # List of phrases considered as spam
     spam_phrases = [
         "click here", "free gift", "bonus", "subscribe",
         "win", ".icu", ".xyz", "offer", "buy now", "cash prize"
     ]
+    # If any of the spam phrases are found, ignore the message
     if any(phrase in text for phrase in spam_phrases):
         return False
 
+    # Strong keywords related to homework
     strong_keywords = [
         "homework", "assignment", "worksheet", "submit",
         "classwork", "question", "due", "test", "exam",
         "page", "chapter", "topic", "notes", "activity", "class test"
     ]
+    # Weak keywords that might relate to homework
     weak_keywords = [
         "work", "read", "write", "draw", "solve", "fill",
         "copy", "prepare", "practice", "home task"
     ]
 
+    # Count hits for strong and weak keywords
     strong_hits = sum(1 for word in strong_keywords if word in text)
     weak_hits = sum(1 for word in weak_keywords if word in text)
     total_score = (strong_hits * 2) + weak_hits
 
+    # Specific hints like "page", "submit", "q.", etc.
     hints = ["page", "submit", "due", "q.", "ex.", "exercise", "copy this"]
     pattern_hits = sum(1 for h in hints if h in text)
 
+    # If total score or pattern hits meet threshold, it's considered homework
     return total_score + pattern_hits >= 3 or len(text) > 50
 
 # Define media type icons based on message content
 def get_media_type_icon(message: Message) -> str:
     if message.text:
-        return "📝 "
+        return "📝 "  # Text message
     elif message.photo:
-        return "📸 "
+        return "📸 "  # Photo message
     elif message.document:
-        return "📄 "
+        return "📄 "  # Document message
     elif message.video:
-        return "📹 "
+        return "📹 "  # Video message
     elif message.voice:
-        return "🎤 "
+        return "🎤 "  # Voice message
     else:
         return "🔁 "  # Default icon for other media types
 
 # Function to get the route map from environment variable
 def get_route_map() -> dict:
-    load_dotenv()
-    raw = os.getenv("ROUTE_MAP", "")
+    load_dotenv()  # Load environment variables
+    raw = os.getenv("ROUTE_MAP", "")  # Fetch route map from .env
     logger.info(f"RAW ROUTE_MAP: {raw}")
     route_map = {}
 
-    for pair in raw.split(","):
+    for pair in raw.split(","):  # Iterate over each pair
         if ":" in pair:
             try:
                 source, target = map(str.strip, pair.split(":"))
-                route_map[int(source)] = int(target)
+                route_map[int(source)] = int(target)  # Map source to target
             except ValueError:
                 logger.warning(f"Invalid ROUTE_MAP pair ignored: {pair}")
 
