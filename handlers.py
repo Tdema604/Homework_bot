@@ -91,9 +91,8 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             media_type = "Video"
         elif message.document:
             await context.bot.send_document(chat_id=target_id, document=message.document.file_id, caption=caption)
-            media_type = "Document"  # Fixed this issue: Media type for document
-
-elif message.audio:
+            media_type = "Document"
+        elif message.audio:
             await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=caption)
             media_type = "Audio"
         elif message.voice:
