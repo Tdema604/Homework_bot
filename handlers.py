@@ -1,145 +1,113 @@
 import logging
 from telegram import Update
-from telegram.ext import ContextTypes, CommandHandler
+from telegram.ext import ContextTypes
 from utils import is_homework, get_route_map, load_env
 
 logger = logging.getLogger(__name__)
 
-# In-memory dynamic route map
+# Global ROUTE_MAP that updates in-memory
 ROUTE_MAP = get_route_map()
 
-def update_route_map(update, context):
-    context.bot_data["ROUTE_MAP"] = ROUTE_MAP
-
-# /id command: show the chat ID
+# /id command
 async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
-    await update.message.reply_text(f" Chat ID: {chat.id}", parse_mode='Markdown')
+    await update.message.reply_text(f"Chat ID: {chat.id}", parse_mode="Markdown")
 
-# /start command: greet user
+# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    logger.info(f" /start from {user.username or user.id}")
-    await update.message.reply_text(" Hello! I'm your Homework Forwarder Bot. Drop homework, and I will pass it along!")
+    await update.message.reply_text("Hello! I'm your Homework Forwarder Bot. Drop homework, and I'll pass it along!")
 
-# /status command: check health
+# /status command
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    logger.info(f" /status from {user.username or user.id}")
-    
     status_msg = (
-        " *Bot Status*\n"
-        f" Uptime: always-on (webhook)\n"
-        f" Active Routes: {len(ROUTE_MAP)} source-to-target mappings\n"
-        f" Admin Chat ID: {context.bot_data.get('ADMIN_CHAT_ID')}"
+        "*Bot Status*\n"
+        f"Uptime: Webhook mode\n"
+        f"Active Routes: {len(ROUTE_MAP)} mapped\n"
+        f"Admin Chat ID: {context.bot_data.get('ADMIN_CHAT_ID')}"
     )
-
     await update.message.reply_text(status_msg, parse_mode="Markdown")
 
-# /reload command: reload .env and route map
+# /reload command
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    admin_id = context.bot_data.get("ADMIN_CHAT_ID")
-
-    if user.id != admin_id:
-        await update.message.reply_text(" Access denied. Only the admin can reload config.")
-        return
-
+    if user.id != context.bot_data.get("ADMIN_CHAT_ID"):
+        return await update.message.reply_text("Access denied. Only admin can reload config.")
+    
     try:
         load_env()
         global ROUTE_MAP
         ROUTE_MAP = get_route_map()
-        context.bot_data["ROUTE_MAP"] = ROUTE_MAP
-        logger.info(" Config and routes reloaded.")
-        await update.message.reply_text(" Config reloaded. New routes applied.")
+        await update.message.reply_text("Configuration and route map reloaded.")
     except Exception as e:
-        logger.exception(" Failed to reload config:")
-        await update.message.reply_text(" Failed to reload config.")
+        logger.exception("Reload failed:")
+        await update.message.reply_text("Failed to reload config.")
 
 # /addroutes command
-async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def addroutes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    admin_id = context.bot_data.get("ADMIN_CHAT_ID")
-
-    if user.id != admin_id:
-        await update.message.reply_text(" Access denied. Only the admin can add routes.")
-        return
-
+    if user.id != context.bot_data.get("ADMIN_CHAT_ID"):
+        return await update.message.reply_text("Access denied.")
+    
+    text = update.message.text.replace("/addroutes", "").strip()
     global ROUTE_MAP
-    new_routes = update.message.text.replace("/addroutes", "").strip()
-    added = []
-    for pair in new_routes.split(","):
+    count = 0
+    for pair in text.split(","):
         if ":" in pair:
             try:
-                src, tgt = map(int, pair.strip().split(":"))
-                ROUTE_MAP[src] = tgt
-                added.append(f"{src} → {tgt}")
-            except ValueError:
-                continue
-
-    context.bot_data["ROUTE_MAP"] = ROUTE_MAP
-    if added:
-        await update.message.reply_text(f"✅ Added {len(added)} route(s):\n" + "\n".join(added))
-    else:
-        await update.message.reply_text("❌ No valid routes added.")
+                source, target = map(int, pair.strip().split(":"))
+                ROUTE_MAP[source] = target
+                count += 1
+            except Exception as e:
+                logger.warning(f"Failed to parse pair: {pair}")
+    await update.message.reply_text(f"✅ Added {count} route(s).")
 
 # /removeroutes command
-async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def removeroutes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    admin_id = context.bot_data.get("ADMIN_CHAT_ID")
-
-    if user.id != admin_id:
-        await update.message.reply_text(" Access denied. Only the admin can remove routes.")
-        return
-
+    if user.id != context.bot_data.get("ADMIN_CHAT_ID"):
+        return await update.message.reply_text("Access denied.")
+    
+    text = update.message.text.replace("/removeroutes", "").strip()
     global ROUTE_MAP
-    to_remove = update.message.text.replace("/removeroutes", "").strip()
-    removed = []
-    for src in to_remove.split(","):
+    count = 0
+    for sid in text.split(","):
         try:
-            src_id = int(src.strip())
-            if src_id in ROUTE_MAP:
-                del ROUTE_MAP[src_id]
-                removed.append(str(src_id))
-        except ValueError:
+            sid = int(sid.strip())
+            if sid in ROUTE_MAP:
+                del ROUTE_MAP[sid]
+                count += 1
+        except Exception:
             continue
+    await update.message.reply_text(f"❌ Removed {count} route(s).")
 
-    context.bot_data["ROUTE_MAP"] = ROUTE_MAP
-    if removed:
-        await update.message.reply_text(f"❌ Removed {len(removed)} route(s):\n" + "\n".join(removed))
-    else:
-        await update.message.reply_text("⚠️ No valid routes removed.")
-
-# Main message forwarding logic
+# Message forwarding logic
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = update.message
         if not message:
-            logger.warning(" No message found.")
             return
 
-        route_map = context.bot_data.get("ROUTE_MAP", {})
         source_id = message.chat_id
-        target_id = route_map.get(source_id)
+        target_id = ROUTE_MAP.get(source_id)
         admin_id = context.bot_data.get("ADMIN_CHAT_ID")
 
         if not target_id:
-            logger.warning(f" No target mapped for source chat ID: {source_id}")
             return
 
         if message.text and not is_homework(message):
-            logger.info(f" Ignored non-homework message: {message.text}")
             return
 
         caption = message.caption or ""
         sender = update.effective_user
         sender_name = f"@{sender.username}" if sender.username else f"user {sender.id}"
 
+        media_type = "Unsupported"
         if message.text:
             await context.bot.send_message(chat_id=target_id, text=message.text)
             media_type = "Text"
         elif message.photo:
-            await context.bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id, caption=caption)
+
+await context.bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id, caption=caption)
             media_type = "Photo"
         elif message.video:
             await context.bot.send_video(chat_id=target_id, video=message.video.file_id, caption=caption)
@@ -153,17 +121,10 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif message.voice:
             await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
             media_type = "Voice"
-        else:
-            logger.warning(f" Unsupported message type: {message}")
-            return
 
-        logger.info(f" Forwarded {media_type} from {source_id} to {target_id}.")
-
-        # Notify admin
         await context.bot.send_message(
             chat_id=admin_id,
-            text=f" Forwarded {media_type} from {sender_name} (chat ID: {source_id})."
+            text=f"Forwarded {media_type} from {sender_name} (chat ID: {source_id})"
         )
-
     except Exception as e:
-        logger.exception(f" Exception while forwarding message: {e}")
+        logger.exception(f"Exception while forwarding message: {e}")
