@@ -111,4 +111,6 @@ media_type = "Document"
             parse_mode="Markdown"
         )
     except Exception as e:
-        logger.exception(f"🚨 Exception while forwarding message: {e}")
+        logger.exception("❌ Failed to forward message:")
+        if admin_id:
+            await context.bot.send_message(chat_id=admin_id, text=f"⚠️ Error forwarding message:\n{e}")
