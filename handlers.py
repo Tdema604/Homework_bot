@@ -3,29 +3,26 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from utils import is_homework, get_route_map, load_env, get_media_type_icon, escape_markdown
 
-# Setting up the logger
 logger = logging.getLogger(__name__)
-
-# Load route map at startup
 ROUTE_MAP = get_route_map()
 
-# /start command: greet user
+# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"📥 /start from {user.username or user.id}")
     await update.message.reply_text("👋 Hello! I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!")
 
-# /id command: show the chat ID
+# /id command
 async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     logger.info(f"📥 /id command from {update.effective_user.username or update.effective_user.id}")
     await update.message.reply_text(f"🆔 Chat ID: {chat.id}", parse_mode='Markdown')
 
-# /status command: check bot health
+# /status command
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"📥 /status from {user.username or user.id}")
-    
+
     status_msg = (
         "✅ *Bot Status*\n"
         f"• Uptime: always-on (webhook)\n"
@@ -35,7 +32,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(status_msg, parse_mode="Markdown")
 
-# /reload command: reload .env and route map
+# /reload command
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     admin_id = context.bot_data.get("ADMIN_CHAT_ID")
@@ -80,7 +77,8 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sender_name_raw = f"@{sender.username}" if sender.username else f"user {sender.id}"
         sender_name = escape_markdown(sender_name_raw)
 
-        # Forwarding different media types
+        media_type = None
+
         if message.text:
             text = escape_markdown(message.text)
             await context.bot.send_message(chat_id=target_id, text=caption + text)
@@ -91,10 +89,10 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif message.video:
             await context.bot.send_video(chat_id=target_id, video=message.video.file_id, caption=caption)
             media_type = "Video"
-
-elif message.document:
+        elif message.document:
             await context.bot.send_document(chat_id=target_id, document=message.document.file_id, caption=caption)
-            media_type = "Document"
+
+media_type = "Document"
         elif message.audio:
             await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=caption)
             media_type = "Audio"
@@ -106,17 +104,16 @@ elif message.document:
             return
 
         logger.info(f"✅ Forwarded {media_type} from {source_id} to {target_id}.")
-        # Admin notification with MarkdownV2 escape
         await context.bot.send_message(
             chat_id=admin_id,
-            text=f"📫 Forwarded *{media_type}* from {sender_name} (chat ID: {source_id})",
+            text=f"📫 Forwarded *{media_type}* from {sender_name} \chat ID: {source_id}\",
             parse_mode="MarkdownV2"
         )
     except Exception as e:
         logger.exception("🚨 Exception while forwarding message:")
-        if admin_id:
+        if context.bot_data.get("ADMIN_CHAT_ID"):
             await context.bot.send_message(
-                chat_id=admin_id,
+                chat_id=context.bot_data["ADMIN_CHAT_ID"],
                 text=f"⚠️ Error forwarding message:\n{escape_markdown(str(e))}",
                 parse_mode="MarkdownV2"
             )
