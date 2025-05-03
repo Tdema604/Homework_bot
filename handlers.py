@@ -1,4 +1,3 @@
-Handlers.py
 import logging
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -61,50 +60,61 @@ async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = "\n".join([f"{src} → {dst}" for src, dst in route_map.items()])
         await update.message.reply_text(f"Active Routes:\n{msg}")
 
+# Main message forwarding logic
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.message
-    if not message:
-        return
+    try:
+        message = update.message
+        if not message:
+            logger.warning(" No message found.")
+            return
 
-    route_map = context.bot_data.get("ROUTE_MAP", {})
-    admin_id = context.bot_data.get("ADMIN_CHAT_ID", None)
-    allowed_sources = context.bot_data.get("ALLOWED_SOURCE_CHAT_IDS", [])
+        source_id = message.chat_id
+        target_id = ROUTE_MAP.get(source_id)
+        admin_id = context.bot_data.get("ADMIN_CHAT_ID")
 
-    source_id = update.effective_chat.id
-    if source_id not in allowed_sources:
-        logger.warning(f"Message from unallowed chat ID: {source_id}")
-        return
+        if not target_id:
+            logger.warning(f" No target mapped for source chat ID: {source_id}")
+            return
 
-    if not is_homework(message):
-        logger.info(f"Ignored non-homework message from {source_id}")
-        try:
-            await message.delete()
-            if admin_id:
-                await context.bot.send_message(
-                    chat_id=admin_id,
-                    text=f"Spam or irrelevant content deleted from {source_id}."
-                )
-        except Exception as e:
-            logger.warning(f"Failed to delete or notify about spam: {e}")
-        return
+        if message.text and not is_homework(message):
+            logger.info(f" Ignored non-homework message: {message.text}")
+            return
 
-    target_id = route_map.get(source_id)
-    if not target_id:
-        logger.warning(f"No route mapped for source: {source_id}")
-        return
+        caption = message.caption or ""
+        sender = update.effective_user
+        sender_name = f"@{sender.username}" if sender.username else f"user {sender.id}"
 
-try:
-        await message.forward(chat_id=target_id)
-        logger.info(f"Forwarded from {source_id} to {target_id}")
-        if admin_id:
-            await context.bot.send_message(
-                chat_id=admin_id,
-                text=f"✅ Homework forwarded from {source_id} to {target_id}."
-            )
+        media_type = None
+
+        if message.text:
+            await context.bot.send_message(chat_id=target_id, text=message.text)
+            media_type = "Text"
+        elif message.photo:
+            await context.bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id, caption=caption)
+            media_type = "Photo"
+        elif message.video:
+            await context.bot.send_video(chat_id=target_id, video=message.video.file_id, caption=caption)
+            media_type = "Video"
+        elif message.document:
+            await context.bot.send_document(chat_id=target_id, document=message.document.file_id, caption=caption)
+            media_type = "Document"
+        elif message.audio:
+            await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=caption)
+            media_type = "Audio"
+        elif message.voice:
+            await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
+            media_type = "Voice"
+        else:
+            logger.warning(f" Unsupported message type: {message}")
+            return
+
+        logger.info(f" Forwarded {media_type} from {source_id} to {target_id}.")
+
+        # Notify admin
+        await context.bot.send_message(
+            chat_id=admin_id,
+            text=f" Forwarded {media_type} from {sender_name} (chat ID: {source_id})."
+        )
+
     except Exception as e:
-        logger.error(f"Failed to forward message: {e}")
-        if admin_id:
-            await context.bot.send_message(
-                chat_id=admin_id,
-                text=f"❌ Failed to forward message from {source_id} to {target_id}.\nError: {e}"
-            )
+        logger.exception(f" Exception while forwarding message: {e}")
