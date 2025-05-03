@@ -49,28 +49,6 @@ async def on_startup(app):
     await application.initialize()
     await application.bot.set_webhook(url=WEBHOOK_URL)
     setup_routes(app, application.bot, application)
-
-    logger.info("Bot initialized and webhook set.")
-
-    # Notify admin
-    try:
-        route_map = get_route_map()
-        await application.bot.send_message(
-            chat_id=ADMIN_CHAT_ID,
-            text=f"Bot restarted.\nRoutes: {len(route_map)} mapped.\nListening via webhook.",
-        )
-    except Exception as e:
-        logger.warning(f"Failed to send startup message to admin: {e}")
-
-# Register startup
-app.on_startup.append(on_startup)
-
-# Run bot server
-if name == "main":  # Fixed: use proper check
-    logger.info(f"Running bot server on port {PORT}")
-    web.run_app(app, host="0.0.0.0", port=PORT)
-
-བསྟེན་འཛིན། [Meto Mother], [5/3/2025 2:40 PM]
 import logging
 from telegram import Update
 from telegram.ext import ContextTypes
