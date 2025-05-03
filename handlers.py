@@ -112,12 +112,14 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="MarkdownV2"
             )
 
-    except Exception as e:
-        logger.exception("🚨 Exception while forwarding message:")
-        if context.bot_data.get("ADMIN_CHAT_ID"):
-            await context.bot.send_message(
-                chat_id=context.bot_data["ADMIN_CHAT_ID"],
-                text=escape_markdown(f"⚠️ Error forwarding message:\n{str(e)}", version=2),
-                parse_mode="MarkdownV2"
-            )
-   
+   except Exception as e:
+    import traceback
+    error_details = traceback.format_exc()
+    logger.error(f"🚨 Exception while forwarding message:\n{error_details}")
+    
+    if context.bot_data.get("ADMIN_CHAT_ID"):
+        await context.bot.send_message(
+            chat_id=context.bot_data["ADMIN_CHAT_ID"],
+            text=escape_markdown(f"⚠️ Error forwarding message:\n{error_details}", version=2),
+            parse_mode="MarkdownV2"
+        )
