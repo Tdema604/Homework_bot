@@ -43,22 +43,18 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     try:
- 
-           load_env()
-           global ROUTE_MAP
-           ROUTE_MAP = get_route_map()
-           logger.info("♻️ Config and routes reloaded successfully.")
-           await update.message.reply_text("♻️ Config reloaded. New routes applied.")
-    
-  except Exception as e:
+        load_env()
+        global ROUTE_MAP
+        ROUTE_MAP = get_route_map()
+        logger.info("♻️ Config and routes reloaded successfully.")
+        await update.message.reply_text("♻️ Config reloaded. New routes applied.")
+    except Exception as e:
         logger.exception("🚨 Failed to reload config:")
         await update.message.reply_text("❌ Failed to reload config.")
 
 # Main message forwarding logic
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-
-
         message = update.message
         if not message:
             logger.warning("⚠️ No message found in the update.")
@@ -116,22 +112,14 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="MarkdownV2"
             )
 
-   except Exception as e:
-          import traceback
-          error_details = 
-   traceback.format_exc()
-          logger.error(f"🚨 Exception 
-   while forwarding message:
-   \n{error_details}")
-    
-         if 
-   context.bot_data.get("ADMIN_CHAT_ID"):
-          await 
-   context.bot.send_message(
-   chat_id=context.bot_data["ADMIN_CHAT_ID"],
-   text=escape_markdown(f"⚠️ Error 
-   forwarding message:
-   \n{error_details}", version=2),
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"🚨 Exception while forwarding message:\n{error_details}")
 
-    parse_mode="MarkdownV2"
-        )
+        if context.bot_data.get("ADMIN_CHAT_ID"):
+            await context.bot.send_message(
+                chat_id=context.bot_data["ADMIN_CHAT_ID"],
+                text=escape_markdown(f"⚠️ Error forwarding message:\n{error_details}", version=2),
+                parse_mode="MarkdownV2"
+            )
