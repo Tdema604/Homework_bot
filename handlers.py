@@ -91,9 +91,9 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             media_type = "Video"
         elif message.document:
             await context.bot.send_document(chat_id=target_id, document=message.document.file_id, caption=caption)
+            media_type = "Document"  # Fixed this issue: Media type for document
 
-media_type = "Document"
-        elif message.audio:
+elif message.audio:
             await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=caption)
             media_type = "Audio"
         elif message.voice:
@@ -106,7 +106,7 @@ media_type = "Document"
         logger.info(f"✅ Forwarded {media_type} from {source_id} to {target_id}.")
         await context.bot.send_message(
             chat_id=admin_id,
-            text=f"📫 Forwarded *{media_type}* from {sender_name} \chat ID: {source_id}\",
+            text=f"📫 Forwarded *{media_type}* from {sender_name} (chat ID: {source_id})",
             parse_mode="MarkdownV2"
         )
     except Exception as e:

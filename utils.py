@@ -4,6 +4,7 @@ import re
 from dotenv import load_dotenv
 from telegram import Message
 
+# Correct logger name initialization
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -20,7 +21,7 @@ def escape_markdown(text: str) -> str:
 # Enhanced homework detection with spam filtering and keyword scoring
 def is_homework(message: Message) -> bool:
     if not message.text:
-        return True
+        return False  # Changed to return False explicitly if no text is present.
 
     text = message.text.lower()
 
