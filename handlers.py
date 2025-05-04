@@ -34,19 +34,21 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     admin_id = context.bot_data.get("ADMIN_CHAT_ID")
+    
     if user.id != admin_id:
         logger.warning(f"⛔️ Unauthorized access attempt for /reload by {user.username or user.id}")
         await update.message.reply_text("⛔️ Access denied. Only the admin can reload config.")
         return
+    
     try:
         load_env()
         global ROUTE_MAP
         ROUTE_MAP = get_route_map()
         logger.info("♻️ Config and routes reloaded successfully.")
-        await update.message.reply_text("♻️ Config reloaded. New routes applied.")
+        await update.message.reply_text("♻️ Config reloaded successfully. All routes are now up-to-date!")
     except Exception as e:
         logger.exception("🚨 Failed to reload config:")
-        await update.message.reply_text("❌ Failed to reload config.")
+        await update.message.reply_text("❌ Failed to reload config. Please try again later.")
 
 # /listroutes command
 async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -66,7 +68,7 @@ async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /addroute command
 async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    logger.info(f"📥 /addroute from {user.username or user.id}")
+    logger.info(f"📥 /addroutes from {user.username or user.id}")
     admin_id = context.bot_data.get("ADMIN_CHAT_ID")
 
     if user.id != admin_id:
@@ -74,18 +76,29 @@ async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔️ Only the admin can add routes.")
         return
 
-    if len(context.args) < 2:
-        await update.message.reply_text("❗ Usage: `/addroute <source_id> <target_id>`", parse_mode="Markdown")
-        return
-
     try:
+        # Ensure correct number of arguments are passed
+        if len(context.args) != 2:
+            await update.message.reply_text("❗ Please provide both source and target IDs.")
+            return
+        
         source_id, target_id = map(int, context.args)
+        
+        # Check if the IDs are valid
+        if source_id == target_id:
+            await update.message.reply_text("❗ Source ID and Target ID cannot be the same.")
+            return
+
         context.bot_data["ROUTE_MAP"][source_id] = target_id
         logger.info(f"✅ Route added: {source_id} ➡️ {target_id}")
         await update.message.reply_text(f"✅ Route added: `{source_id}` ➡️ `{target_id}`", parse_mode="Markdown")
+
+    except ValueError:
+        logger.error("🚫 Invalid source/target ID format.")
+        await update.message.reply_text("❗ Both source and target IDs must be integers.")
     except Exception as e:
         logger.error(f"🚫 Error adding route: {e}")
-        await update.message.reply_text("❗ Error processing the request. Please try again.", parse_mode="Markdown")
+        await update.message.reply_text("❌ Something went wrong while adding the route. Please try again.")
 
 # /removeroute command
 async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
