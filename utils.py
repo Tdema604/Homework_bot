@@ -38,9 +38,16 @@ def is_homework(message: Message) -> bool:
 
     # Strong keywords related to homework
     strong_keywords = [
-        "homework", "assignment", "worksheet", "submit",
-        "classwork", "question", "due", "test", "exam",
-        "page", "chapter", "topic", "notes", "activity", "class test"
+        "homework", "hw", "assignment", "classwork", "task", "work", 
+    "worksheet", "project", "activity", "practice", 
+    "revision", "test prep", "reading", "notes", "prep", "quiz", "exam",
+    "deadline", "submission", "due", "final", "presentation", "lab report",
+    "writeup", "summary", "essay", "recap", "module", "draft",
+    "slides", "questions", "maths", "science", "english", "dzongkha",
+    "to-do", "school stuff", "pdf", "page no", "page", "write", 
+    "do this", "read", "solve", "finish", "study", "submit", 
+    "📝", "📚", "✍️", "✅", "📖"
+
     ]
     # Weak keywords that might relate to homework
     weak_keywords = [
