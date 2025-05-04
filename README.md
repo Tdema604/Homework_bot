@@ -13,7 +13,7 @@ Homework Forwarder Bot is designed to:
 - **Notify Admin** about any actions or errors transparently.
 
 ---
-**#Admin Commands**
+## Admin Commands 
 
 - /start – Greets the user
 - /id – Returns the chat ID
