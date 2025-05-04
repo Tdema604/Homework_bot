@@ -62,7 +62,8 @@ async def on_startup(app):
 try:
     route_map = application.bot_data.get("ROUTE_MAP", {})
     active_routes = len(route_map)
-    await application.bot.send_message(
+    await 
+    application.bot.send_message(
         chat_id=ADMIN_CHAT_ID,
         text=(
             f"🤖 Bot restarted.\n"
