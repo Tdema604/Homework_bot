@@ -7,7 +7,6 @@ from handlers import forward_message, start, chat_id, status, reload_config, lis
 from web import setup_routes
 from utils import load_routes_from_file
 
-
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,23 +57,21 @@ async def on_startup(app):
 
     logger.info("✅ Bot initialized and webhook set successfully.")
 
-       # Notify admin on startup with accurate live route count
-try:
-    route_map = application.bot_data.get("ROUTE_MAP", {})
-    active_routes = len(route_map)
-            await 
-    application.bot.send_message(
-        chat_id=ADMIN_CHAT_ID,
-        text=(
-            f"🤖 Bot restarted.\n"
-            f"🗺️ Active Routes: {active_routes} source-to-target mappings\n"
-            f"🌐 Webhook URL: `{WEBHOOK_URL}`"
-        ),
-        parse_mode="Markdown"
-    )
-except Exception as e:
-    logger.warning(f"⚠️ Failed to notify admin: {e}")
-
+    # ✅ Notify admin on startup with accurate live route count
+    try:
+        route_map = application.bot_data.get("ROUTE_MAP", {})
+        active_routes = len(route_map)
+        await application.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=(
+                f"🤖 Bot restarted.\n"
+                f"🗺️ Active Routes: {active_routes} source-to-target mappings\n"
+                f"🌐 Webhook URL: `{WEBHOOK_URL}`"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to notify admin: {e}")
 
 # Register startup event
 app.on_startup.append(on_startup)
