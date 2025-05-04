@@ -14,13 +14,14 @@ Homework Forwarder Bot is designed to:
 
 ---
 #Admin Commands
-/start – Greets the user
-/id – Returns the chat ID
-/status – Shows config status
-/reload – Reloads route map from .env
-/addroute <src> <dst> – Adds a new forwarding route
-/removeroute <src> – Removes an existing route
-/listroutes – Lists all routes
+
+- /start – Greets the user
+- /id – Returns the chat ID
+- /status – Shows config status
+- /reload – Reloads route map from .env
+- /addroute <src> <dst> – Adds a new forwarding route
+- /removeroute <src> – Removes an existing route
+- /listroutes – Lists all routes
 
 ---
 
