@@ -64,7 +64,7 @@ async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 # /addroute command
-async def add_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"📥 /addroute from {user.username or user.id}")
     admin_id = context.bot_data.get("ADMIN_CHAT_ID")
@@ -88,7 +88,7 @@ async def add_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❗ Error processing the request. Please try again.", parse_mode="Markdown")
 
 # /removeroute command
-async def remove_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"📥 /removeroute from {user.username or user.id}")
     admin_id = context.bot_data.get("ADMIN_CHAT_ID")
