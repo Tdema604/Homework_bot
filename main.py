@@ -58,11 +58,9 @@ async def on_startup(app):
     logger.info("✅ Bot initialized and webhook set successfully.")
 
     # ✅ Notify admin on startup with accurate live route count
-try:
-        # Reload route map fresh from file to ensure it's up-to-date
-        fresh_routes = load_routes_from_file()
-        active_routes = len(fresh_routes)
-
+    try:
+        route_map = application.bot_data.get("ROUTE_MAP", {})
+        active_routes = len(route_map)
         await application.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
             text=(
@@ -74,7 +72,6 @@ try:
         )
     except Exception as e:
         logger.warning(f"⚠️ Failed to notify admin: {e}")
-
 
 # Register startup event
 app.on_startup.append(on_startup)
