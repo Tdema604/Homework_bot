@@ -24,15 +24,19 @@ async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"📥 /status from {user.username or user.id}")
-    active_routes=len(route_map)
 
-      status_msg = (
+    # Load routes from the file to get the live routes
+    route_map = load_routes_from_file()  # Using the load method here
+    active_routes = len(route_map)
+
+    status_msg = (
         "✅ *Bot Status*\n"
         f"• Uptime: always-on (webhook)\n"
-        f"• Active Routes: {len(ROUTE_MAP)} source-to-target mappings\n"
+        f"• Active Routes: {active_routes} source-to-target mappings\n"
         f"• Admin Chat ID: {context.bot_data.get('ADMIN_CHAT_ID')}"
     )
     await update.message.reply_text(status_msg, parse_mode="Markdown")
+
 
 # /reload command
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
