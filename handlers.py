@@ -1,6 +1,7 @@
 import logging
 from telegram import Update
 from utils import save_routes_to_file
+from utils import load_routes_from_file
 from telegram.ext import ContextTypes
 from utils import is_homework, get_route_map, load_env, get_media_type_icon, escape_markdown
 
@@ -23,7 +24,9 @@ async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"📥 /status from {user.username or user.id}")
-    status_msg = (
+    active_routes=len(route_map)
+
+      status_msg = (
         "✅ *Bot Status*\n"
         f"• Uptime: always-on (webhook)\n"
         f"• Active Routes: {len(ROUTE_MAP)} source-to-target mappings\n"
