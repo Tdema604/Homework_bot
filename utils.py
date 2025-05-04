@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import re
 from dotenv import load_dotenv
@@ -19,6 +20,32 @@ def escape_markdown(text: str) -> str:
     # Escape characters required by MarkdownV2
     escape_chars = r"_*[]()~`>#+-=|{}.!"
     return ''.join(['\\' + c if c in escape_chars else c for c in text])
+
+# ROUTE MAP PERSISTENCE
+ROUTE_FILE = "routes.json"
+
+def load_routes_from_file() -> dict:
+    """Load routing map from JSON file on disk."""
+    if not os.path.exists(ROUTE_FILE):
+        logger.warning("⚠️ No routes.json found. Starting with empty route map.")
+        return {}
+    try:
+        with open(ROUTE_FILE, "r") as f:
+            data = json.load(f)
+            logger.info(f"✅ Loaded {len(data)} routes from routes.json.")
+            return {int(k): v for k, v in data.items()}
+    except Exception as e:
+        logger.exception("🚨 Failed to load routes from file:")
+        return {}
+
+def save_routes_to_file(route_map: dict):
+    """Save the routing map to a JSON file on disk."""
+    try:
+        with open(ROUTE_FILE, "w") as f:
+            json.dump({str(k): v for k, v in route_map.items()}, f, indent=2)
+        logger.info("💾 Routes saved to routes.json.")
+    except Exception as e:
+        logger.exception("🚨 Failed to save routes to file:")
 
 # Enhanced homework detection with spam filtering and keyword scoring
 def is_homework(message: Message) -> bool:

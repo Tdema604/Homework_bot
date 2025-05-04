@@ -1,5 +1,6 @@
 import logging
 from telegram import Update
+from utils import save_routes_to_file
 from telegram.ext import ContextTypes
 from utils import is_homework, get_route_map, load_env, get_media_type_icon, escape_markdown
 
@@ -90,6 +91,7 @@ async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         context.bot_data["ROUTE_MAP"][source_id] = target_id
+        save_routes_to_file(context.bot_data["ROUTE_MAP"])
         logger.info(f"✅ Route added: {source_id} ➡️ {target_id}")
         await update.message.reply_text(f"✅ Route added: `{source_id}` ➡️ `{target_id}`", parse_mode="Markdown")
 
@@ -119,6 +121,7 @@ async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         source_id = int(context.args[0])
         if source_id in context.bot_data["ROUTE_MAP"]:
             del context.bot_data["ROUTE_MAP"][source_id]
+            save_routes_to_file(context.bot_data["ROUTE_MAP"])
             logger.info(f"🗑️ Route removed for source ID {source_id}")
             await update.message.reply_text(f"🗑️ Route removed for `{source_id}`", parse_mode="Markdown")
         else:

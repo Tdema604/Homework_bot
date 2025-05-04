@@ -5,7 +5,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, ContextTyp
 from dotenv import load_dotenv
 from handlers import forward_message, start, chat_id, status, reload_config, list_routes, add_routes, remove_routes
 from web import setup_routes
-from utils import get_route_map
+from utils import load_routes_from_file
+
 
 # Logging setup
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -34,7 +35,7 @@ async def on_startup(app):
     # Inject runtime bot data
     application.bot_data["ALLOWED_SOURCE_CHAT_IDS"] = [int(id.strip()) for id in ALLOWED_SOURCE_CHAT_IDS if id.strip()]
     application.bot_data["ADMIN_CHAT_ID"] = ADMIN_CHAT_ID
-    application.bot_data["ROUTE_MAP"] = get_route_map()
+    application.bot_data["ROUTE_MAP"] = load_routes_from_file()
 
     # Command handlers
     application.add_handler(CommandHandler("start", start))
