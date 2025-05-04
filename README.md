@@ -13,6 +13,16 @@ Homework Forwarder Bot is designed to:
 - **Notify Admin** about any actions or errors transparently.
 
 ---
+#Admin Commands
+/start – Greets the user
+/id – Returns the chat ID
+/status – Shows config status
+/reload – Reloads route map from .env
+/addroute <src> <dst> – Adds a new forwarding route
+/removeroute <src> – Removes an existing route
+/listroutes – Lists all routes
+
+---
 
 ## 🛠️ Tech Stack
 
