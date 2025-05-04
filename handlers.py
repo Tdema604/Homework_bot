@@ -47,11 +47,12 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.exception("🚨 Failed to reload config:")
         await update.message.reply_text("❌ Failed to reload config.")
+
 # /listroutes command
 async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     logger.info(f"📥 /listroutes from {user.username or user.id}")
-    
+
     routes = context.bot_data.get("ROUTE_MAP", {})
     if not routes:
         await update.message.reply_text("⚠️ No routes configured yet.")
@@ -73,6 +74,10 @@ async def add_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔️ Only the admin can add routes.")
         return
 
+    if len(context.args) < 2:
+        await update.message.reply_text("❗ Usage: `/addroute <source_id> <target_id>`", parse_mode="Markdown")
+        return
+
     try:
         source_id, target_id = map(int, context.args)
         context.bot_data["ROUTE_MAP"][source_id] = target_id
@@ -80,7 +85,7 @@ async def add_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Route added: `{source_id}` ➡️ `{target_id}`", parse_mode="Markdown")
     except Exception as e:
         logger.error(f"🚫 Error adding route: {e}")
-        await update.message.reply_text("❗ Usage: `/addroute <source_id> <target_id>`", parse_mode="Markdown")
+        await update.message.reply_text("❗ Error processing the request. Please try again.", parse_mode="Markdown")
 
 # /removeroute command
 async def remove_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -93,6 +98,10 @@ async def remove_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔️ Only the admin can remove routes.")
         return
 
+    if len(context.args) < 1:
+        await update.message.reply_text("❗ Usage: `/removeroute <source_id>`", parse_mode="Markdown")
+        return
+
     try:
         source_id = int(context.args[0])
         if source_id in context.bot_data["ROUTE_MAP"]:
@@ -103,7 +112,7 @@ async def remove_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ No route found for that source ID.")
     except Exception as e:
         logger.error(f"🚫 Error removing route: {e}")
-        await update.message.reply_text("❗ Usage: `/removeroute <source_id>`", parse_mode="Markdown")
+        await update.message.reply_text("❗ Error processing the request. Please try again.", parse_mode="Markdown")
 
 # Message forwarder
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
