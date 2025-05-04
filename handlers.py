@@ -47,6 +47,63 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.exception("🚨 Failed to reload config:")
         await update.message.reply_text("❌ Failed to reload config.")
+# /listroutes command
+async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    logger.info(f"📥 /listroutes from {user.username or user.id}")
+    
+    routes = context.bot_data.get("ROUTE_MAP", {})
+    if not routes:
+        await update.message.reply_text("⚠️ No routes configured yet.")
+        return
+
+    msg = "*📚 Active Routes:*\n"
+    for source, target in routes.items():
+        msg += f"• `{source}` ➡️ `{target}`\n"
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+# /addroute command
+async def add_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    logger.info(f"📥 /addroute from {user.username or user.id}")
+    admin_id = context.bot_data.get("ADMIN_CHAT_ID")
+
+    if user.id != admin_id:
+        logger.warning(f"⛔️ Unauthorized attempt to add route by {user.username or user.id}")
+        await update.message.reply_text("⛔️ Only the admin can add routes.")
+        return
+
+    try:
+        source_id, target_id = map(int, context.args)
+        context.bot_data["ROUTE_MAP"][source_id] = target_id
+        logger.info(f"✅ Route added: {source_id} ➡️ {target_id}")
+        await update.message.reply_text(f"✅ Route added: `{source_id}` ➡️ `{target_id}`", parse_mode="Markdown")
+    except Exception as e:
+        logger.error(f"🚫 Error adding route: {e}")
+        await update.message.reply_text("❗ Usage: `/addroute <source_id> <target_id>`", parse_mode="Markdown")
+
+# /removeroute command
+async def remove_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    logger.info(f"📥 /removeroute from {user.username or user.id}")
+    admin_id = context.bot_data.get("ADMIN_CHAT_ID")
+
+    if user.id != admin_id:
+        logger.warning(f"⛔️ Unauthorized attempt to remove route by {user.username or user.id}")
+        await update.message.reply_text("⛔️ Only the admin can remove routes.")
+        return
+
+    try:
+        source_id = int(context.args[0])
+        if source_id in context.bot_data["ROUTE_MAP"]:
+            del context.bot_data["ROUTE_MAP"][source_id]
+            logger.info(f"🗑️ Route removed for source ID {source_id}")
+            await update.message.reply_text(f"🗑️ Route removed for `{source_id}`", parse_mode="Markdown")
+        else:
+            await update.message.reply_text("⚠️ No route found for that source ID.")
+    except Exception as e:
+        logger.error(f"🚫 Error removing route: {e}")
+        await update.message.reply_text("❗ Usage: `/removeroute <source_id>`", parse_mode="Markdown")
 
 # Message forwarder
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):

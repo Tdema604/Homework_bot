@@ -3,7 +3,7 @@ import logging
 from aiohttp import web
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 from dotenv import load_dotenv
-from handlers import forward_message, start, chat_id, status, reload_config
+from handlers import forward_message, start, chat_id, status, reload_config, list_routes, add_routes, remove_routes
 from web import setup_routes
 from utils import get_route_map
 
@@ -41,6 +41,9 @@ async def on_startup(app):
     application.add_handler(CommandHandler("id", chat_id))
     application.add_handler(CommandHandler("status", status))
     application.add_handler(CommandHandler("reload", reload_config))
+    application.add_handler(CommandHandler("listroutes", list_routes))
+    application.add_handler(CommandHandler("addroutes", add_routes))
+    application.add_handler(CommandHandler("removeroutes", remove_routes))
 
     # Message handler
     application.add_handler(MessageHandler(filters.ALL, forward_message))
