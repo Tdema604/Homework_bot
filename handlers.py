@@ -167,7 +167,7 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
            
             full_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip()
             sender_display = full_name if full_name else f"user {sender.id}"
-            sender_name = escape_markdown(sender_display)
+            sender_name = f"[{escape_markdown(sender_display)}](tg://user?id={sender.id})"
             media_type = None
 
         if message.text:
