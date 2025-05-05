@@ -159,8 +159,14 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         caption = escape_markdown(message.caption or "")
         sender = update.effective_user
-        sender_name_raw = f"@{sender.username}" if sender.username else f"user {sender.id}"
-        sender_name = escape_markdown(sender_name_raw)
+
+        if sender.username:
+        sender_display = f"@{sender.username}"
+        else:
+        full_name = f"{sender.first_name or ''} {sender.last_name or ''}".strip()
+        sender_display = full_name if full_name else f"user {sender.id}"
+
+        sender_name = escape_markdown(sender_display)
 
         media_type = None
 
