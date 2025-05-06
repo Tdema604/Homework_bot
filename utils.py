@@ -22,8 +22,11 @@ def escape_markdown(text: str) -> str:
     return ''.join(['\\' + c if c in escape_chars else c for c in text])
 
 # ROUTE MAP PERSISTENCE
-ROUTE_FILE = "routes.json"
-
+def initialize_routes(bot_data):
+    route_map = bot_data.get("ROUTE_MAP", {})
+    if not isinstance(route_map, dict):
+        raise ValueError("ROUTE_MAP must be a dictionary")
+    
 def load_routes_from_file() -> dict:
     """Load routing map from JSON file on disk."""
     if not os.path.exists(ROUTE_FILE):

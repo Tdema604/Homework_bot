@@ -1,216 +1,245 @@
+import os
 import logging
+import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from telegram import Update
-from utils import save_routes_to_file
-from utils import load_routes_from_file
 from telegram.ext import ContextTypes
-from utils import is_homework, get_route_map, load_env, get_media_type_icon, escape_markdown
+from telegram.constants import ParseMode
+
+from utils import (
+    save_routes_to_file,
+    load_routes_from_file,
+    is_homework,
+    get_route_map,
+    load_env,
+    get_media_type_icon,
+    escape_markdown,
+)
 
 logger = logging.getLogger(__name__)
 ROUTE_MAP = get_route_map()
 
-# /start command
+def get_route_map():
+    try:
+        with open("routes.json", "r", encoding="utf-8") as f:
+            raw_map = json.load(f)
+
+        route_map = {}
+        for source, targets in raw_map.items():
+            if not isinstance(targets, list):
+                targets = [targets]
+            route_map[int(source)] = [int(t) for t in targets]
+
+        return route_map
+
+    except Exception as e:
+        print(f"❌ Failed to load route map: {e}")
+        return {}
+
+# === Local Bhutan Time Helper ===
+def get_local_bhutan_time():
+    return datetime.now(ZoneInfo("Asia/Thimphu"))
+
+# === Dynamic Greeting Based on Time ===
+def get_dynamic_greeting():
+    current_hour = get_local_bhutan_time().hour
+    if current_hour < 12:
+        return "Good morning! 🌞"
+    elif current_hour < 18:
+        return "Good afternoon! 🌅"
+    else:
+        return "Good evening! 🌙"
+
+# === Bot Mood Based on Day of Week ===
+def get_bot_mood():
+    current_day = get_local_bhutan_time().weekday()
+    if current_day == 6:
+        return "I'm feeling sleepy today 😴"
+    elif current_day == 5:
+        return "It's the weekend! Yay! 🎉"
+    else:
+        return "I'm ready to help! 🤩"
+
+# === Notify Admin ===
+async def notify_admin(application, admin_chat_id, webhook_url):
+    route_map = application.bot_data.get("ROUTE_MAP")
+    if route_map:
+        await application.bot.send_message(
+            admin_chat_id,
+            f"🤖 Bot restarted.\n🗺️ Active Routes: {len(route_map)} source-to-target mappings\n🌐 Webhook URL: {webhook_url}"
+        )
+    else:
+        await application.bot.send_message(
+            admin_chat_id,
+            f"🤖 Bot restarted.\n🗺️ Active Routes: 0\n🌐 Webhook URL: {webhook_url}"
+        )
+
+# === /start ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    logger.info(f"📥 /start from {user.username or user.id}")
-    await update.message.reply_text("👋 Hello! I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!")
-
-# /id command
-async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat = update.effective_chat
-    logger.info(f"📥 /id command from {update.effective_user.username or update.effective_user.id}")
-    await update.message.reply_text(f"🆔 Chat ID: {chat.id}", parse_mode='Markdown')
-
-# /status command
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    logger.info(f"📥 /status from {user.username or user.id}")
-
-    # Load routes from the file to get the live routes
-    route_map = load_routes_from_file()  # Using the load method here
-    active_routes = len(route_map)
-
-    status_msg = (
-        "✅ *Bot Status*\n"
-        f"• Uptime: always-on (webhook)\n"
-        f"• Active Routes: {active_routes} source-to-target mappings\n"
-        f"• Admin Chat ID: {context.bot_data.get('ADMIN_CHAT_ID')}"
+    greeting = get_dynamic_greeting()
+    mood = get_bot_mood()
+    await update.message.reply_text(
+        f"👋 Hello, {user.first_name}!\n"
+        f"{greeting}\n\n"
+        f"🔔 Tip: If you ever miss a message, just type /summary to get today's homework again!\n\n"
+        f"{mood}\n"
+        "I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!"
     )
-    await update.message.reply_text(status_msg, parse_mode="Markdown")
 
+# === /id ===
+async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"🆔 Chat ID: `{update.effective_chat.id}`", parse_mode="Markdown")
 
-# /reload command
-async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
+# === /status ===
+async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    route_map = load_routes_from_file()
     admin_id = context.bot_data.get("ADMIN_CHAT_ID")
-    
-    if user.id != admin_id:
-        logger.warning(f"⛔️ Unauthorized access attempt for /reload by {user.username or user.id}")
-        await update.message.reply_text("⛔️ Access denied. Only the admin can reload config.")
+    await update.message.reply_text(
+        f"✅ *Bot Status*\n• Uptime: webhook\n• Active Routes: {len(route_map)}\n• Admin Chat ID: {admin_id}",
+        parse_mode="Markdown"
+    )
+
+# === /reload ===
+async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != context.bot_data.get("ADMIN_CHAT_ID"):
+        await update.message.reply_text("⛔️ Access denied.")
         return
-    
     try:
         load_env()
         global ROUTE_MAP
         ROUTE_MAP = get_route_map()
-        logger.info("♻️ Config and routes reloaded successfully.")
-        await update.message.reply_text("♻️ Config reloaded successfully. All routes are now up-to-date!")
+        context.bot_data["ROUTE_MAP"] = ROUTE_MAP
+        await update.message.reply_text("♻️ Config reloaded successfully.")
     except Exception as e:
-        logger.exception("🚨 Failed to reload config:")
-        await update.message.reply_text("❌ Failed to reload config. Please try again later.")
+        logger.exception("Reload failed")
+        await update.message.reply_text("❌ Reload failed.")
 
-# /listroutes command
+# === /listroutes ===
 async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    logger.info(f"📥 /listroutes from {user.username or user.id}")
-
     routes = context.bot_data.get("ROUTE_MAP", {})
     if not routes:
         await update.message.reply_text("⚠️ No routes configured yet.")
         return
-
     msg = "*📚 Active Routes:*\n"
-    for source, target in routes.items():
-        msg += f"• `{source}` ➡️ `{target}`\n"
+    msg += "\n".join([f"• `{k}` ➡️ `{v}`" for k, v in routes.items()])
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-# /addroute command
+# === /addroutes ===
 async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    logger.info(f"📥 /addroutes from {user.username or user.id}")
-    admin_id = context.bot_data.get("ADMIN_CHAT_ID")
-
-    if user.id != admin_id:
-        logger.warning(f"⛔️ Unauthorized attempt to add route by {user.username or user.id}")
-        await update.message.reply_text("⛔️ Only the admin can add routes.")
+    if update.effective_user.id != context.bot_data.get("ADMIN_CHAT_ID"):
+        await update.message.reply_text("⛔️ Only admin can add routes.")
         return
-
     try:
-        # Ensure correct number of arguments are passed
-        if len(context.args) != 2:
-            await update.message.reply_text("❗ Please provide both source and target IDs.")
-            return
-        
         source_id, target_id = map(int, context.args)
-        
-        # Check if the IDs are valid
         if source_id == target_id:
-            await update.message.reply_text("❗ Source ID and Target ID cannot be the same.")
-            return
-
+            return await update.message.reply_text("❗ Source and Target can't be the same.")
         context.bot_data["ROUTE_MAP"][source_id] = target_id
         save_routes_to_file(context.bot_data["ROUTE_MAP"])
-        logger.info(f"✅ Route added: {source_id} ➡️ {target_id}")
         await update.message.reply_text(f"✅ Route added: `{source_id}` ➡️ `{target_id}`", parse_mode="Markdown")
+    except:
+        await update.message.reply_text("❗ Usage: /addroutes <source_id> <target_id>")
 
-    except ValueError:
-        logger.error("🚫 Invalid source/target ID format.")
-        await update.message.reply_text("❗ Both source and target IDs must be integers.")
-    except Exception as e:
-        logger.error(f"🚫 Error adding route: {e}")
-        await update.message.reply_text("❌ Something went wrong while adding the route. Please try again.")
-
-# /removeroute command
+# === /removeroute ===
 async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    logger.info(f"📥 /removeroute from {user.username or user.id}")
-    admin_id = context.bot_data.get("ADMIN_CHAT_ID")
-
-    if user.id != admin_id:
-        logger.warning(f"⛔️ Unauthorized attempt to remove route by {user.username or user.id}")
-        await update.message.reply_text("⛔️ Only the admin can remove routes.")
-        return
-
-    if len(context.args) < 1:
-        await update.message.reply_text("❗ Usage: `/removeroute <source_id>`", parse_mode="Markdown")
-        return
-
+    if update.effective_user.id != context.bot_data.get("ADMIN_CHAT_ID"):
+        return await update.message.reply_text("⛔️ Only admin can remove routes.")
     try:
         source_id = int(context.args[0])
         if source_id in context.bot_data["ROUTE_MAP"]:
             del context.bot_data["ROUTE_MAP"][source_id]
             save_routes_to_file(context.bot_data["ROUTE_MAP"])
-            logger.info(f"🗑️ Route removed for source ID {source_id}")
-            await update.message.reply_text(f"🗑️ Route removed for `{source_id}`", parse_mode="Markdown")
+            await update.message.reply_text(f"🗑️ Removed route for `{source_id}`", parse_mode="Markdown")
         else:
-            await update.message.reply_text("⚠️ No route found for that source ID.")
-    except Exception as e:
-        logger.error(f"🚫 Error removing route: {e}")
-        await update.message.reply_text("❗ Error processing the request. Please try again.", parse_mode="Markdown")
+            await update.message.reply_text("⚠️ Route not found.")
+    except:
+        await update.message.reply_text("❗ Usage: /removeroute <source_id>", parse_mode="Markdown")
 
-# Message forwarder
+# === /list_senders ===
+async def list_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != context.bot_data.get("ADMIN_CHAT_ID"):
+        return await update.message.reply_text("⛔️ Access denied.")
+    logs = context.bot_data.get("FORWARDED_LOGS", [])
+    if not logs:
+        return await update.message.reply_text("No messages have been forwarded yet.")
+    msg = "*📨 Sender Activity Summary:*\n"
+    for log in logs:
+        msg += f"\n🕓 {log['timestamp']} | {log['type']} | From: {log['sender']}"
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+# === /clear_senders ===
+async def clear_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.bot_data["SENDER_LOGS"] = []
+    await update.message.reply_text("✅ Sender log cleared.")
+
+# === /weekly_homework ===
+async def weekly_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    one_week_ago = time.time() - 7 * 24 * 60 * 60
+    logs = [log for log in context.bot_data.get("FORWARDED_LOGS", []) if
+            datetime.strptime(log["timestamp"], "%Y-%m-%d %H:%M:%S").timestamp() >= one_week_ago]
+    if not logs:
+        return await update.message.reply_text("No homework in the last 7 days.")
+    summary = "*📚 Weekly Homework Summary*\n"
+    for log in logs:
+        summary += f"\n🗓 {log['timestamp']} | {log['type']}\nFrom: {log['sender']}\n📝 {escape_markdown(log['content'])}\n"
+    await update.message.reply_text(summary, parse_mode="MarkdownV2")
+
+# === /clear_homework ===
+async def clear_homework_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != context.bot_data.get("ADMIN_CHAT_ID"):
+        return await update.message.reply_text("⛔️ Access denied.")
+    context.bot_data["FORWARDED_LOGS"] = []
+    await update.message.reply_text("✅ Homework log cleared.")
+
+# === Forward Message ===
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        message = update.message
-        if not message:
-            logger.warning("⚠️ No message found in the update.")
+        msg = update.message
+        if not msg:
             return
 
-        source_id = message.chat_id
-        target_id = context.bot_data["ROUTE_MAP"].get(source_id)
-        admin_id = context.bot_data.get("ADMIN_CHAT_ID")
-
+        source_id = msg.chat_id
+        target_id = context.bot_data.get("ROUTE_MAP", {}).get(source_id)
         if not target_id:
-            logger.warning(f"⛔️ No target mapped for source chat ID: {source_id}")
             return
 
-        if message.text and not is_homework(message):
-            logger.info(f"🚫 Ignored non-homework message from {source_id}: {message.text}")
+        junk_keywords = ["/nayavpn", "@shopbot", "promotion", "win prize"]
+        if msg.text and any(junk in msg.text.lower() for junk in junk_keywords):
+            logger.info("🚫 Junk message blocked.")
             return
 
-        caption = escape_markdown(message.caption or "")
-        sender = update.effective_user
-        sender_name_raw = f"@{sender.username}" if sender.username else f"user {sender.id}"
-        sender_name = escape_markdown(sender_name_raw)
+        content, media_type = "", None
+        if msg.text:
+            content, media_type = msg.text, "text"
+            await context.bot.send_message(target_id, msg.text)
+        elif msg.photo:
+            media_type = "photo"
+            await context.bot.send_photo(target_id, msg.photo[-1].file_id)
+        elif msg.document:
+            media_type = "document"
+            await context.bot.send_document(target_id, msg.document.file_id)
+        elif msg.audio:
+            media_type = "audio"
+            await context.bot.send_audio(target_id, msg.audio.file_id)
+        elif msg.video:
+            media_type = "video"
+            await context.bot.send_video(target_id, msg.video.file_id)
+        elif msg.voice:
+            media_type = "voice"
+            await context.bot.send_voice(target_id, msg.voice.file_id)
+        elif msg.sticker:
+            media_type = "sticker"
+            await context.bot.send_sticker(target_id, msg.sticker.file_id)
 
-        media_type = None
-
-        if message.text:
-            text = escape_markdown(message.text)
-            await context.bot.send_message(chat_id=target_id, text=text, parse_mode="MarkdownV2")
-            media_type = "Text"
-        elif message.photo:
-            await context.bot.send_photo(chat_id=target_id, photo=message.photo[-1].file_id, caption=caption, parse_mode="MarkdownV2")
-            media_type = "Photo"
-        elif message.video:
-            await context.bot.send_video(chat_id=target_id, video=message.video.file_id, caption=caption, parse_mode="MarkdownV2")
-            media_type = "Video"
-        elif message.document:
-            await context.bot.send_document(chat_id=target_id, document=message.document.file_id, caption=caption, parse_mode="MarkdownV2")
-            media_type = "Document"
-        elif message.audio:
-            await context.bot.send_audio(chat_id=target_id, audio=message.audio.file_id, caption=caption, parse_mode="MarkdownV2")
-            media_type = "Audio"
-        elif message.voice:
-            await context.bot.send_voice(chat_id=target_id, voice=message.voice.file_id)
-            media_type = "Voice"
-        else:
-            logger.warning(f"⚠️ Unsupported message type from {source_id}: {message}")
-            return
-
-        logger.info(f"✅ Forwarded {media_type} from {source_id} to {target_id}.")
-
-        # Short preview for admin notification
-        preview_raw = message.caption if message.caption else (message.text or "")
-        preview = escape_markdown(preview_raw[:100])
-        media_icon = escape_markdown(get_media_type_icon(message))
-        safe_source_id = escape_markdown(str(source_id))
-
-        await context.bot.send_message(
-            chat_id=admin_id,
-            text=(
-                f"{media_icon} Forwarded *{media_type}* from {sender_name} \chat ID: `{safe_source_id}`\\n"
-                f"📝 \"{preview}\""
-            ),
-            parse_mode="MarkdownV2"
-        )
+        log = {
+            "sender": msg.from_user.full_name,
+            "type": media_type,
+            "content": content or media_type,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        context.bot_data.setdefault("FORWARDED_LOGS", []).append(log)
+        logger.info(f"✅ Forwarded: {media_type} from {source_id} to {target_id}")
 
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        logger.error(f"🚨 Exception while forwarding message:\n{error_details}")
-        if context.bot_data.get("ADMIN_CHAT_ID"):
-            await context.bot.send_message(
-                chat_id=context.bot_data["ADMIN_CHAT_ID"],
-                text=f"❌ Error occurred during forwarding. Check logs for details.\nError Details: ```{escape_markdown(error_details)}```",
-                parse_mode="MarkdownV2"
-            )
+        logger.error(f"🚨 Error forwarding: {e}")
