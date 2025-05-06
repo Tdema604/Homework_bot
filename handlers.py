@@ -26,10 +26,20 @@ def get_route_map():
             raw_map = json.load(f)
 
         route_map = {}
+        repaired = False
+
         for source, targets in raw_map.items():
             if not isinstance(targets, list):
                 targets = [targets]
+                repaired = True
             route_map[int(source)] = [int(t) for t in targets]
+
+        # 🔧 Auto-repair routes.json if needed
+        if repaired:
+            with open("routes.json", "w", encoding="utf-8") as f:
+                fixed_map = {str(k): v for k, v in route_map.items()}
+                json.dump(fixed_map, f, indent=2)
+            print("🔧 Auto-repaired routes.json format ✅")
 
         return route_map
 
@@ -37,11 +47,11 @@ def get_route_map():
         print(f"❌ Failed to load route map: {e}")
         return {}
 
-# === Local Bhutan Time Helper ===
+# Local Bhutan Time Helper 
 def get_local_bhutan_time():
     return datetime.now(ZoneInfo("Asia/Thimphu"))
 
-# === Dynamic Greeting Based on Time ===
+# Dynamic Greeting Based on Time
 def get_dynamic_greeting():
     current_hour = get_local_bhutan_time().hour
     if current_hour < 12:
@@ -50,8 +60,7 @@ def get_dynamic_greeting():
         return "Good afternoon! 🌅"
     else:
         return "Good evening! 🌙"
-
-# === Bot Mood Based on Day of Week ===
+# Bot Mood Based on Day of Week 
 def get_bot_mood():
     current_day = get_local_bhutan_time().weekday()
     if current_day == 6:
@@ -61,7 +70,7 @@ def get_bot_mood():
     else:
         return "I'm ready to help! 🤩"
 
-# === Notify Admin ===
+#  Notify Admin 
 async def notify_admin(application, admin_chat_id, webhook_url):
     route_map = application.bot_data.get("ROUTE_MAP")
     if route_map:
@@ -75,7 +84,7 @@ async def notify_admin(application, admin_chat_id, webhook_url):
             f"🤖 Bot restarted.\n🗺️ Active Routes: 0\n🌐 Webhook URL: {webhook_url}"
         )
 
-# === /start ===
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     greeting = get_dynamic_greeting()
@@ -88,11 +97,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!"
     )
 
-# === /id ===
+# /id 
 async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🆔 Chat ID: `{update.effective_chat.id}`", parse_mode="Markdown")
 
-# === /status ===
+# /status 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     route_map = load_routes_from_file()
     admin_id = context.bot_data.get("ADMIN_CHAT_ID")
@@ -101,7 +110,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-# === /reload ===
+# /reload 
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != context.bot_data.get("ADMIN_CHAT_ID"):
         await update.message.reply_text("⛔️ Access denied.")
@@ -116,7 +125,7 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.exception("Reload failed")
         await update.message.reply_text("❌ Reload failed.")
 
-# === /listroutes ===
+# /listroutes 
 async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     routes = context.bot_data.get("ROUTE_MAP", {})
     if not routes:
@@ -126,7 +135,7 @@ async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg += "\n".join([f"• `{k}` ➡️ `{v}`" for k, v in routes.items()])
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-# === /addroutes ===
+# /addroutes 
 async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != context.bot_data.get("ADMIN_CHAT_ID"):
         await update.message.reply_text("⛔️ Only admin can add routes.")
@@ -141,7 +150,7 @@ async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         await update.message.reply_text("❗ Usage: /addroutes <source_id> <target_id>")
 
-# === /removeroute ===
+# /removeroute 
 async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != context.bot_data.get("ADMIN_CHAT_ID"):
         return await update.message.reply_text("⛔️ Only admin can remove routes.")
@@ -156,7 +165,7 @@ async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         await update.message.reply_text("❗ Usage: /removeroute <source_id>", parse_mode="Markdown")
 
-# === /list_senders ===
+# /list_senders 
 async def list_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != context.bot_data.get("ADMIN_CHAT_ID"):
         return await update.message.reply_text("⛔️ Access denied.")
@@ -168,12 +177,12 @@ async def list_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += f"\n🕓 {log['timestamp']} | {log['type']} | From: {log['sender']}"
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-# === /clear_senders ===
+# /clear_senders 
 async def clear_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.bot_data["SENDER_LOGS"] = []
     await update.message.reply_text("✅ Sender log cleared.")
 
-# === /weekly_homework ===
+# /weekly_homework 
 async def weekly_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
     one_week_ago = time.time() - 7 * 24 * 60 * 60
     logs = [log for log in context.bot_data.get("FORWARDED_LOGS", []) if
@@ -185,14 +194,14 @@ async def weekly_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
         summary += f"\n🗓 {log['timestamp']} | {log['type']}\nFrom: {log['sender']}\n📝 {escape_markdown(log['content'])}\n"
     await update.message.reply_text(summary, parse_mode="MarkdownV2")
 
-# === /clear_homework ===
+# /clear_homework 
 async def clear_homework_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != context.bot_data.get("ADMIN_CHAT_ID"):
         return await update.message.reply_text("⛔️ Access denied.")
     context.bot_data["FORWARDED_LOGS"] = []
     await update.message.reply_text("✅ Homework log cleared.")
 
-# === Forward Message ===
+# Forward Message 
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         msg = update.message
