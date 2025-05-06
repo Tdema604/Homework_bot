@@ -8,4 +8,6 @@ __pycache__/
 # 🧪 Virtual environment
 venv/
 
+# 🔐 Never commit sensitive credentials
 routes.json
+
