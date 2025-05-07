@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import html
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
@@ -15,7 +16,7 @@ from utils import (
     save_routes_to_env,
     get_routes_map,
 )
-from html import escape
+
 
 logger = logging.getLogger(__name__)
 
