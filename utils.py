@@ -29,7 +29,7 @@ def load_routes_from_env():
 
 def get_routes_map() -> dict:
     """
-    Load route mapping from the .env variable ROUTES_MAP.
+    Load routes mapping from the .env variable ROUTES_MAP.
     Format: "123:456,789:1011"
     Returns a dictionary {123: 456, 789: 1011}
     """
@@ -50,7 +50,7 @@ def get_routes_map() -> dict:
     return routes_map
 
 
-def save_routes_to_env(route_map: dict):
+def save_routes_to_env(routes_map: dict):
     """
     Save routes map back into memory (os.environ) in the same format.
     This does NOT persist to disk. For development/testing only.
