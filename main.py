@@ -74,7 +74,7 @@ async def webhook(request):
 async def notify_admin(bot, webhook_url):
     try:
         if not ADMIN_IDS:
-            logger.warning("⚠️ No admin IDs available to notify.")
+            logger.info(f"✅ RUNTIME ROUTES_MAP raw string: {os.getenv('ROUTES_MAP')}")
             return
 
         routes = telegram_app.bot_data.get("ROUTES_MAP", {})
