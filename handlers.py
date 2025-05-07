@@ -72,7 +72,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_id in admin_ids:
         help_text = (
-            "👋 *Admin Help Menu*\n\n"
+            "👨‍💼 <b>Admin Help Menu</b>\n\n"
             "/start – Greet the bot\n"
             "/status – Bot health check\n"
             "/chatid – Get chat ID\n"
@@ -83,18 +83,18 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/weekly_summary – Get a 7-day homework report\n"
             "/clear_homework_log – Clear the homework log\n"
             "/list_senders – View recent sender activity\n"
-            "/clear_senders – Clear sender activity\n"
+            "/clear_senders – Clear sender activity"
         )
     else:
         help_text = (
-            "👋 *Parent/Teacher Help Menu*\n\n"
+            "👩‍🏫 <b>Parent/Teacher Help Menu</b>\n\n"
             "/start – Greet the bot\n"
             "/status – Check if the bot is online\n"
             "/summary – Get today's homework summary\n\n"
-            "_This bot automatically forwards homework from teachers to parents._"
+            "<i>This bot automatically forwards homework from teachers to parents.</i>"
         )
 
-    await update.message.reply_text(help_text, parse_mode="Markdown")
+    await update.message.reply_text(help_text, parse_mode=ParseMode.HTML)
 
 # === Route Management Commands ===
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -136,43 +136,51 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_chat_id = routes[chat_id]
     forwarded_msg = None
 
-    try:
-        # Escape markdown characters in the message text before sending
-        escaped_text = escape_markdown(message.text or message.caption or "")
+    # Get media emoji
+    media_type_emoji = get_media_type_icon(message)
+    caption_html = html.escape(message.caption or message.text or "")
 
+    try:
         if message.text:
             forwarded_msg = await context.bot.send_message(
-                chat_id=target_chat_id, text=escaped_text, parse_mode=ParseMode.MARKDOWN
+                chat_id=target_chat_id,
+                text=f"{media_type_emoji} {html.escape(message.text)}",
+                parse_mode=ParseMode.HTML,
             )
         elif message.photo:
             forwarded_msg = await context.bot.send_photo(
                 chat_id=target_chat_id,
                 photo=message.photo[-1].file_id,
-                caption=escaped_text,
+                caption=f"{media_type_emoji} {caption_html}",
+                parse_mode=ParseMode.HTML,
             )
         elif message.document:
             forwarded_msg = await context.bot.send_document(
                 chat_id=target_chat_id,
                 document=message.document.file_id,
-                caption=escaped_text,
+                caption=f"{media_type_emoji} {caption_html}",
+                parse_mode=ParseMode.HTML,
             )
         elif message.video:
             forwarded_msg = await context.bot.send_video(
                 chat_id=target_chat_id,
                 video=message.video.file_id,
-                caption=escaped_text,
+                caption=f"{media_type_emoji} {caption_html}",
+                parse_mode=ParseMode.HTML,
             )
         elif message.audio:
             forwarded_msg = await context.bot.send_audio(
                 chat_id=target_chat_id,
                 audio=message.audio.file_id,
-                caption=escaped_text,
+                caption=f"{media_type_emoji} {caption_html}",
+                parse_mode=ParseMode.HTML,
             )
         elif message.voice:
             forwarded_msg = await context.bot.send_voice(
                 chat_id=target_chat_id,
                 voice=message.voice.file_id,
-                caption=escaped_text,
+                caption=f"{media_type_emoji} {caption_html}",
+                parse_mode=ParseMode.HTML,
             )
         elif message.sticker:
             forwarded_msg = await context.bot.send_sticker(
@@ -180,18 +188,13 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 sticker=message.sticker.file_id,
             )
 
-        # Log forwarded homework
+        # Log homework
         if is_homework(message):
-            # Define emojis for different media types
-            media_type_emoji = get_media_type_icon(message)
-
-            # Update forwarded logs with emojis for media type
-            content = f"{media_type_emoji} {escaped_text}" if escaped_text else media_type_emoji
             forwarded_logs.append({
                 "timestamp": time.time(),
                 "sender": sender.full_name,
-                "type": media_type_emoji,  # Store emoji as the type
-                "content": content,
+                "type": media_type_emoji,
+                "content": f"{media_type_emoji} {caption_html}",
             })
 
     except Exception as e:
