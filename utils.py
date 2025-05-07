@@ -135,19 +135,23 @@ def is_homework(message: Message) -> bool:
 
 
 # Define media type icons based on message content
+
 def get_media_type_icon(message: Message) -> str:
-    if message.text:
-        return "📝 "  # Text message
-    elif message.photo:
-        return "📸 "  # Photo message
+    if message.photo:
+        return "🖼️"
     elif message.document:
-        return "📄 "  # Document message
+        return "📄"
     elif message.video:
-        return "📹 "  # Video message
+        return "🎞️"
+    elif message.audio:
+        return "🎵"
     elif message.voice:
-        return "🎤 "  # Voice message
-    else:
-        return "🔁 "  # Default icon for other media types
+        return "🎤"
+    elif message.sticker:
+        return "🔖"
+    elif message.text:
+        return "✏️"
+    return "📎"
 
 
 def escape_markdown(text: str) -> str:
