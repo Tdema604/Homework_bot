@@ -74,7 +74,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_id in admin_ids:
         help_text = (
-            "👨‍💼 <b>Admin Help Menu</b>\n\n"
+            "👋 <b>Admin Help Menu</b>\n\n"
             "/start – Greet the bot\n"
             "/status – Bot health check\n"
             "/chatid – Get chat ID\n"
@@ -89,7 +89,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     else:
         help_text = (
-            "👩‍🏫 <b>Parent/Teacher Help Menu</b>\n\n"
+            "👋 <b>Parent/Teacher Help Menu</b>\n\n"
             "/start – Greet the bot\n"
             "/status – Check if the bot is online\n"
             "/summary – Get today's homework summary\n\n"
@@ -97,19 +97,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     await update.message.reply_text(help_text, parse_mode=ParseMode.HTML)
-
-# === Route Management Commands ===
-async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
-        await update.message.reply_text("⛔️ Access denied.")
-        return
-    try:
-        new_map = get_routes_map()
-        context.bot_data["ROUTES_MAP"] = new_map
-        await update.message.reply_text("♻️ Route map reloaded from .env successfully.")
-    except Exception as e:
-        logger.exception("Reload error:")
-        await update.message.reply_text("❌ Reload failed.")
 
 
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -138,50 +125,47 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target_chat_id = routes[chat_id]
     forwarded_msg = None
 
-    # Get media emoji
-    media_type_emoji = get_media_type_icon(message)
-    caption_html = html.escape(message.caption or message.text or "")
-
     try:
+        # Escape special characters for safe display
+        escaped_text = escape(message.text or message.caption or "")
+
         if message.text:
             forwarded_msg = await context.bot.send_message(
-                chat_id=target_chat_id,
-                text=f"{media_type_emoji} {html.escape(message.text)}",
-                parse_mode=ParseMode.HTML,
+                chat_id=target_chat_id, text=escaped_text, parse_mode=ParseMode.HTML
             )
         elif message.photo:
             forwarded_msg = await context.bot.send_photo(
                 chat_id=target_chat_id,
                 photo=message.photo[-1].file_id,
-                caption=f"{media_type_emoji} {caption_html}",
+                caption=escaped_text,
                 parse_mode=ParseMode.HTML,
             )
         elif message.document:
             forwarded_msg = await context.bot.send_document(
                 chat_id=target_chat_id,
                 document=message.document.file_id,
-                caption=f"{media_type_emoji} {caption_html}",
+                caption=escaped_text,
                 parse_mode=ParseMode.HTML,
             )
         elif message.video:
             forwarded_msg = await context.bot.send_video(
                 chat_id=target_chat_id,
                 video=message.video.file_id,
-                caption=f"{media_type_emoji} {caption_html}",
+                caption=escaped_text,
                 parse_mode=ParseMode.HTML,
             )
         elif message.audio:
             forwarded_msg = await context.bot.send_audio(
                 chat_id=target_chat_id,
                 audio=message.audio.file_id,
-                caption=f"{media_type_emoji} {caption_html}",
+                caption=escaped_text,
                 parse_mode=ParseMode.HTML,
             )
         elif message.voice:
             forwarded_msg = await context.bot.send_voice(
                 chat_id=target_chat_id,
                 voice=message.voice.file_id,
-                caption=f"{media_type_emoji} {caption_html}",
+                caption=escaped_text,
                 parse_mode=ParseMode.HTML,
             )
         elif message.sticker:
@@ -190,17 +174,35 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 sticker=message.sticker.file_id,
             )
 
-        # Log homework
+        # Log forwarded homework
         if is_homework(message):
+            media_type_emoji = get_media_type_icon(message)
+            content = f"{media_type_emoji} {escaped_text}" if escaped_text else media_type_emoji
+
             forwarded_logs.append({
                 "timestamp": time.time(),
                 "sender": sender.full_name,
                 "type": media_type_emoji,
-                "content": f"{media_type_emoji} {caption_html}",
+                "content": content,
             })
 
     except Exception as e:
         print("Forwarding failed:", e)
+
+# === Route Management Commands ===
+async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
+        await update.message.reply_text("⛔️ Access denied.")
+        return
+    try:
+        new_map = get_routes_map()
+        context.bot_data["ROUTES_MAP"] = new_map
+        await update.message.reply_text("♻️ Route map reloaded from .env successfully.")
+    except Exception as e:
+        logger.exception("Reload error:")
+        await update.message.reply_text("❌ Reload failed.")
+
+
 
 async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
