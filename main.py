@@ -39,10 +39,6 @@ logger = logging.getLogger(__name__)
 # ─── Build Telegram Application ─────────────────────────────
 telegram_app = Application.builder().token(BOT_TOKEN).build()
 
-# Load admin IDs from .env (e.g., "123456789,987654321")
-ADMIN_IDS = set(map(int, os.getenv("ADMIN_IDS", "").split(",")))
-application.bot_data["ADMIN_IDS"] = ADMIN_IDS
-
 # ─── Handler Registration ──────────────────────────────────
 def setup_bot_handlers(app: Application):
     command_handlers = [
