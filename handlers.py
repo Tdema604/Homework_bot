@@ -51,29 +51,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     logger.info("✅ /start command triggered.")
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    is_admin = user_id in ADMIN_IDS
-
-    if is_admin:
-        help_text = (
-            "👋 *Admin Help Menu*\n\n"
-            "/start – Greet the bot\n"
-            "/status – Bot health check\n"
-            "/weekly_summary – Get a 7-day homework report\n"
-            "/clear_homework_log – Clear the homework log\n"
-            "/list_senders – View recent sender activity\n"
-        )
-    else:
-        help_text = (
-            "👋 *Parent/Teacher Help Menu*\n\n"
-            "/start – Greet the bot\n"
-            "/status – Check if the bot is online\n\n"
-            "_This bot automatically forwards homework from teachers to parents._"
-        )
-
-    await update.message.reply_text(help_text, parse_mode="Markdown")
-
 # === Forwarding Handler ===
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Protect command messages like /start from being intercepted
@@ -164,6 +141,29 @@ async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• `{s}` ➡️ `{t}`" for s, t in routes.items()
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    is_admin = user_id in ADMIN_IDS
+
+    if is_admin:
+        help_text = (
+            "👋 *Admin Help Menu*\n\n"
+            "/start – Greet the bot\n"
+            "/status – Bot health check\n"
+            "/weekly_summary – Get a 7-day homework report\n"
+            "/clear_homework_log – Clear the homework log\n"
+            "/list_senders – View recent sender activity\n"
+        )
+    else:
+        help_text = (
+            "👋 *Parent/Teacher Help Menu*\n\n"
+            "/start – Greet the bot\n"
+            "/status – Check if the bot is online\n\n"
+            "_This bot automatically forwards homework from teachers to parents._"
+        )
+
+    await update.message.reply_text(help_text, parse_mode="Markdown")
 
 async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != int(os.getenv("ADMIN_CHAT_ID", "0")):
