@@ -8,7 +8,7 @@ from telegram.ext import (
 )
 from dotenv import load_dotenv
 from handlers import (
-    start, chat_id, status, reload_config,
+    start, chat_id, status, reload_config,help_command, 
     list_routes, add_routes, remove_routes,
     list_senders, clear_senders,
     weekly_homework, clear_homework_log,
