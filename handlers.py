@@ -127,7 +127,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✅ <b>Bot Status</b>\n"
         f"• <b>Uptime:</b> always-on (webhook)\n"
         f"• <b>Active Routes:</b> {len(routes)} source-to-target mappings\n"
-        f"• <b>Admin Chat IDs:</b> {admin_ids}",
+        f"• <b>Admin Chat IDs:</b> {context.bot_data.get('ADMIN_CHAT_IDS', [])}",
         parse_mode="HTML"
     )
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
