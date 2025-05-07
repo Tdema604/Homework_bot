@@ -8,23 +8,15 @@ from telegram.ext import (
 )
 from dotenv import load_dotenv
 from handlers import (
-    start, chat_id, status, reload_config, help_command, 
+    start, chat_id, status, reload_config, help_command,
     list_routes, add_routes, remove_routes,
     list_senders, clear_senders,
     weekly_homework, clear_homework_log,
     forward_message
 )
 from utils import get_routes_map, get_admin_ids
-
-# Load environment variables with the utility functions
-ROUTES_MAP = get_routes_map()
-ADMIN_IDS = get_admin_ids()
-
 from datetime import datetime
 import pytz
-
-# Setup logger
-logger = logging.getLogger(__name__)
 
 # ─── Load Environment Variables ─────────────────────────────
 load_dotenv()
@@ -53,7 +45,7 @@ def setup_bot_handlers(app: Application):
         ("start", start),
         ("id", chat_id),
         ("status", status),
-        ("help", help_command),  # ✅ Add this line
+        ("help", help_command),
         ("reload", reload_config),
         ("listroutes", list_routes),
         ("addroutes", add_routes),
@@ -78,56 +70,13 @@ async def webhook(request):
         logger.error(f"❌ Webhook processing error: {e}")
         return web.Response(status=500)
 
-# ─── aiohttp Startup Hook ───────────────────────────────────
-async def on_startup(app: web.Application):
-    logger.warning(f"✅ RUNTIME ROUTES_MAP raw string: {os.getenv('ROUTES_MAP')}")
-    logger.info(f"📦 ROUTES_MAP from get_routes_map: {get_routes_map()}")
-    telegram_app.bot_data["ROUTES_MAP"] = get_routes_map()
-    telegram_app.bot_data["ALLOWED_SOURCE_CHAT_IDS"] = ALLOWED_SOURCE_CHAT_IDS
-    telegram_app.bot_data["ADMIN_CHAT_IDS"] = ADMIN_IDS
-
-    setup_bot_handlers(telegram_app)
-    await telegram_app.initialize()
-    await telegram_app.start()
-
-    full_webhook_url = f"{WEBHOOK_URL}{WEBHOOK_PATH}"
-    await telegram_app.bot.set_webhook(url=full_webhook_url)
-    logger.info(f"✅ Webhook registered with URL: {full_webhook_url}")
-
-    # Notify Admins about Bot restart
-    for admin_id in ADMIN_IDS:
-        await notify_admin(telegram_app.bot, admin_id, full_webhook_url)
-
 # ─── Admin Notification ─────────────────────────────────────
-# Load ADMIN_IDS from environment variable safely
-admin_ids_raw = os.getenv("ADMIN_IDS", "").strip()  # Remove leading/trailing whitespaces
-
-# Log if it's empty
-if not admin_ids_raw:
-    logger.warning("⚠️ ADMIN_IDS environment variable is either missing or empty!")
-    ADMIN_IDS = set()  # Fallback to an empty set
-else:
-    # Attempt to parse admin IDs, but be cautious with empty strings
-    try:
-        ADMIN_IDS = {int(x.strip()) for x in admin_ids_raw.split(",") if x.strip().isdigit()}
-        if not ADMIN_IDS:
-            raise ValueError("No valid admin IDs found after parsing.")
-    except ValueError as e:
-        logger.error(f"❌ Error while parsing ADMIN_IDS: {e}")
-        ADMIN_IDS = set()  # Fallback to empty set if there's an error in parsing
-
-# Log the loaded admin IDs
-logger.warning(f"✅ Loaded ADMIN_IDS: {ADMIN_IDS}")
-
-# Async function to notify admins
 async def notify_admin(bot, webhook_url):
     try:
-        # Check if there are admin IDs to notify
         if not ADMIN_IDS:
             logger.warning("⚠️ No admin IDs available to notify.")
             return
-        
-        # Prepare the message content
+
         routes = telegram_app.bot_data.get("ROUTES_MAP", {})
         route_count = len(routes)
         bt_time = datetime.now(pytz.timezone("Asia/Thimphu"))
@@ -140,13 +89,47 @@ async def notify_admin(bot, webhook_url):
             f"🌐 <b>Webhook URL:</b> {webhook_url}"
         )
 
-        # Send message to all admin chat IDs
         for admin_chat_id in ADMIN_IDS:
             await bot.send_message(admin_chat_id, message, parse_mode="HTML")
-        
+
         logger.info("✅ Admin(s) notified.")
     except Exception as e:
         logger.error(f"❌ Failed to notify admin(s): {e}")
+
+# ─── aiohttp Startup Hook ───────────────────────────────────
+async def on_startup(app: web.Application):
+    logger.warning(f"✅ RUNTIME ROUTES_MAP raw string: {os.getenv('ROUTES_MAP')}")
+    telegram_app.bot_data["ROUTES_MAP"] = get_routes_map()
+    telegram_app.bot_data["ALLOWED_SOURCE_CHAT_IDS"] = ALLOWED_SOURCE_CHAT_IDS
+    telegram_app.bot_data["ADMIN_CHAT_IDS"] = ADMIN_IDS
+
+    setup_bot_handlers(telegram_app)
+    await telegram_app.initialize()
+    await telegram_app.start()
+
+    full_webhook_url = f"{WEBHOOK_URL}{WEBHOOK_PATH}"
+    await telegram_app.bot.set_webhook(url=full_webhook_url)
+    logger.info(f"✅ Webhook registered with URL: {full_webhook_url}")
+
+    for admin_id in ADMIN_IDS:
+        await notify_admin(telegram_app.bot, full_webhook_url)
+
+# ─── Load ADMIN_IDS Safely ──────────────────────────────────
+admin_ids_raw = os.getenv("ADMIN_IDS", "").strip()
+
+if not admin_ids_raw:
+    logger.warning("⚠️ ADMIN_IDS environment variable is either missing or empty!")
+    ADMIN_IDS = set()
+else:
+    try:
+        ADMIN_IDS = {int(x.strip()) for x in admin_ids_raw.split(",") if x.strip().isdigit()}
+        if not ADMIN_IDS:
+            raise ValueError("No valid admin IDs found after parsing.")
+    except ValueError as e:
+        logger.error(f"❌ Error while parsing ADMIN_IDS: {e}")
+        ADMIN_IDS = set()
+
+logger.warning(f"✅ Loaded ADMIN_IDS: {ADMIN_IDS}")
 
 # ─── Run aiohttp App ────────────────────────────────────────
 web_app = web.Application()
