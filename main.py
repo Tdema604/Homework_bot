@@ -23,6 +23,9 @@ ADMIN_IDS = get_admin_ids()
 from datetime import datetime
 import pytz
 
+# Setup logger
+logger = logging.getLogger(__name__)
+
 # ─── Load Environment Variables ─────────────────────────────
 load_dotenv()
 
@@ -96,7 +99,6 @@ async def on_startup(app: web.Application):
 
 # ─── Admin Notification ─────────────────────────────────────
 # Load ADMIN_IDS from environment variable safely
-
 admin_ids_raw = os.getenv("ADMIN_IDS", "").strip()  # Remove leading/trailing whitespaces
 
 # Log if it's empty
@@ -114,10 +116,19 @@ else:
         logger.error(f"❌ Error while parsing ADMIN_IDS: {e}")
         ADMIN_IDS = set()  # Fallback to empty set if there's an error in parsing
 
+# Log the loaded admin IDs
 logger.warning(f"✅ Loaded ADMIN_IDS: {ADMIN_IDS}")
 
-async def notify_admin(bot, admin_chat_id, webhook_url):
+
+# Async function to notify admins
+async def notify_admin(bot, webhook_url):
     try:
+        # Check if there are admin IDs to notify
+        if not ADMIN_IDS:
+            logger.warning("⚠️ No admin IDs available to notify.")
+            return
+        
+        # Prepare the message content
         routes = telegram_app.bot_data.get("ROUTES_MAP", {})
         route_count = len(routes)
         bt_time = datetime.now(pytz.timezone("Asia/Thimphu"))
@@ -129,10 +140,15 @@ async def notify_admin(bot, admin_chat_id, webhook_url):
             f"🗺️ <b>Active Routes:</b> {route_count}\n"
             f"🌐 <b>Webhook URL:</b> {webhook_url}"
         )
-        await bot.send_message(admin_chat_ids, message, parse_mode="HTML")
-        logger.info("✅ Admin notified.")
+
+        # Send message to all admin chat IDs
+        for admin_chat_id in ADMIN_IDS:
+            await bot.send_message(admin_chat_id, message, parse_mode="HTML")
+        
+        logger.info("✅ Admin(s) notified.")
     except Exception as e:
-        logger.error(f"❌ Failed to notify admin: {e}")
+        logger.error(f"❌ Failed to notify admin(s): {e}")
+
 # ─── Run aiohttp App ────────────────────────────────────────
 web_app = web.Application()
 web_app.on_startup.append(on_startup)
