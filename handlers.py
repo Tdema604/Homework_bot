@@ -40,6 +40,16 @@ def get_bot_mood():
     return "I'm ready to help! 🤩"
 
 # === Command Handlers ===
+async def some_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    admin_ids = context.bot_data.get("ADMIN_IDS", set())
+    
+    if update.effective_user.id not in admin_ids:
+        await update.message.reply_text("❌ You are not authorized to use this command.")
+        return
+
+    # Proceed with the command if authorized
+    await update.message.reply_text("✅ Authorized. Running admin command...")
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await update.message.reply_text(
