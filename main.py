@@ -25,7 +25,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 PORT = int(os.getenv("PORT", 10000))
 WEBHOOK_PATH = "/webhook"
-ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "0"))
+ADMIN_CHAT_IDS = int(os.getenv("ADMIN_CHAT_ID", "0"))
 ALLOWED_SOURCE_CHAT_IDS = [
     int(cid.strip()) for cid in os.getenv("SOURCE_CHAT_IDS", "").split(",") if cid.strip()
 ]
@@ -76,7 +76,7 @@ async def on_startup(app: web.Application):
     logger.info(f"📦 ROUTES_MAP from get_routes_map: {get_routes_map()}")
     telegram_app.bot_data["ROUTES_MAP"] = get_routes_map()
     telegram_app.bot_data["ALLOWED_SOURCE_CHAT_IDS"] = ALLOWED_SOURCE_CHAT_IDS
-    telegram_app.bot_data["ADMIN_CHAT_ID"] = ADMIN_CHAT_ID
+    telegram_app.bot_data["ADMIN_CHAT_IDS"] = ADMIN_CHAT_IDS
 
     setup_bot_handlers(telegram_app)
     await telegram_app.initialize()
@@ -86,7 +86,7 @@ async def on_startup(app: web.Application):
     await telegram_app.bot.set_webhook(url=full_webhook_url)
     logger.info(f"✅ Webhook registered with URL: {full_webhook_url}")
 
-    await notify_admin(telegram_app.bot, ADMIN_CHAT_ID, full_webhook_url)
+    await notify_admin(telegram_app.bot, ADMIN_CHAT_IDS, full_webhook_url)
 
 # ─── Admin Notification ─────────────────────────────────────
 # Load ADMIN_IDS from environment variable safely
@@ -123,7 +123,7 @@ async def notify_admin(bot, admin_chat_id, webhook_url):
             f"🗺️ <b>Active Routes:</b> {route_count}\n"
             f"🌐 <b>Webhook URL:</b> {webhook_url}"
         )
-        await bot.send_message(admin_chat_id, message, parse_mode="HTML")
+        await bot.send_message(admin_chat_ids, message, parse_mode="HTML")
         logger.info("✅ Admin notified.")
     except Exception as e:
         logger.error(f"❌ Failed to notify admin: {e}")
