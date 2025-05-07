@@ -67,7 +67,7 @@ def setup_bot_handlers(app: Application):
         ("removeroutes", remove_routes),
         ("list_senders", list_senders),
         ("clear_senders", clear_senders),
-        ("weekly_homework", weekly_homework),
+        ("weekly_summary", weekly_homework),
         ("clear_homework_log", clear_homework_log),
     ]
     for cmd, handler in command_handlers:
