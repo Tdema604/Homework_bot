@@ -109,7 +109,6 @@ async def notify_admin(bot, admin_chat_id, webhook_url):
         logger.info("✅ Admin notified.")
     except Exception as e:
         logger.error(f"❌ Failed to notify admin: {e}")
-
 # ─── Run aiohttp App ────────────────────────────────────────
 web_app = web.Application()
 web_app.on_startup.append(on_startup)
