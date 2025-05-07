@@ -71,6 +71,7 @@ async def webhook(request):
 
 # ─── aiohttp Startup Hook ───────────────────────────────────
 async def on_startup(app: web.Application):
+    logger.warning(f"✅ RUNTIME ROUTES_MAP raw string: {os.getenv('ROUTES_MAP')}")
     logger.info(f"📦 ROUTES_MAP from get_route_map: {get_route_map()}")
     telegram_app.bot_data["ROUTES_MAP"] = get_route_map()
     telegram_app.bot_data["ALLOWED_SOURCE_CHAT_IDS"] = ALLOWED_SOURCE_CHAT_IDS

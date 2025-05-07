@@ -132,9 +132,9 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.exception("Reload error:")
         await update.message.reply_text("❌ Reload failed.")
 
-async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    routes = context.bot_data.get("ROUTE_MAP", {})
-    if not routes:
+async def list_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    route = context.bot_data.get("ROUTE_MAP", {})
+    if not routes
         await update.message.reply_text("⚠️ No routes configured.")
         return
     msg = "*📚 Active Routes:*\n" + "\n".join(
@@ -142,9 +142,9 @@ async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def add_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != int(os.getenv("ADMIN_CHAT_ID", "0")):
-        await update.message.reply_text("⛔️ Only admin can add routes.")
+        await update.message.reply_text("⛔️ Only admin can add route.")
         return
     try:
         source_id, target_id = map(int, context.args)
@@ -152,21 +152,21 @@ async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❗ Source and target can't be the same.")
             return
         context.bot_data["ROUTE_MAP"][source_id] = target_id
-        save_routes_to_env(context.bot_data["ROUTE_MAP"])
+        save_route_to_env(context.bot_data["ROUTE_MAP"])
         await update.message.reply_text(
             f"✅ Route added: `{source_id}` ➡️ `{target_id}`", parse_mode="Markdown"
         )
     except Exception:
         await update.message.reply_text("❌ Failed to add route.")
 
-async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def remove_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != int(os.getenv("ADMIN_CHAT_ID", "0")):
         await update.message.reply_text("⛔️ Only admin can remove routes.")
         return
     try:
         source_id = int(context.args[0])
         if context.bot_data["ROUTE_MAP"].pop(source_id, None):
-            save_routes_to_env(context.bot_data["ROUTE_MAP"])
+            save_route_to_env(context.bot_data["ROUTE_MAP"])
             await update.message.reply_text(
                 f"🗑️ Route removed: `{source_id}`", parse_mode="Markdown"
             )
