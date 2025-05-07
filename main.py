@@ -93,15 +93,11 @@ async def on_startup(app: web.Application):
 
 # ─── Admin Notification ─────────────────────────────────────
 # Load ADMIN_IDS from environment variable safely
-admin_ids_raw = os.getenv("ADMIN_IDS")
-if admin_ids_raw:
-    try:
-        ADMIN_IDS = set(map(int, admin_ids_raw.split(",")))
-    except ValueError:
-        print("❌ Invalid ADMIN_IDS format. Must be comma-separated integers.")
-        ADMIN_IDS = set()
-else:
-    print("⚠️ ADMIN_IDS not set. No admins will be able to use admin commands.")
+admin_ids_raw = os.getenv("ADMIN_IDS", "")
+try:
+    ADMIN_IDS = {int(x) for x in admin_ids_raw.split(",") if x.strip()}
+except ValueError:
+    print("❌ ADMIN_IDS contains non-numeric values. Please fix it.")
     ADMIN_IDS = set()
 
 async def notify_admin(bot, admin_chat_id, webhook_url):
