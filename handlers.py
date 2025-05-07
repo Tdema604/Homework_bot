@@ -16,9 +16,10 @@ from utils import (
     get_routes_map,
 )
 from html import escape
-escaped_text = escape(message.text or message.caption or "")
 
 logger = logging.getLogger(__name__)
+
+caption_html = html.escape(message.caption or message.text or "")
 
 # === Time Helpers ===
 def get_local_bhutan_time():
