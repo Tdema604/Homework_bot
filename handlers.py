@@ -109,15 +109,17 @@ async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    route_map = context.bot_data.get("ROUTE_MAP", {})
-    msg = (
-        "✅ *Bot Status*\n"
-        f"• Uptime: Webhook mode\n"
-        f"• Active Routes: {len(route_map)}\n"
-        f"• Admin Chat ID: `{os.getenv('ADMIN_CHAT_ID')}`"
+    bt_time = datetime.now(ZoneInfo("Asia/Thimphu"))
+    routes = context.bot_data.get("ROUTES_MAP", {})
+    admin_id = context.bot_data.get("ADMIN_CHAT_ID", "Not set")
+    
+    await update.message.reply_text(
+        "✅ <b>Bot Status</b>\n"
+        f"• <b>Uptime:</b> always-on (webhook)\n"
+        f"• <b>Active Routes:</b> {len(routes)} source-to-target mappings\n"
+        f"• <b>Admin Chat ID:</b> {admin_id}",
+        parse_mode="HTML"
     )
-    await update.message.reply_text(msg, parse_mode="Markdown")
-
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != int(os.getenv("ADMIN_CHAT_ID", "0")):
         await update.message.reply_text("⛔️ Access denied.")
