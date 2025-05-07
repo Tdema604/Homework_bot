@@ -86,7 +86,8 @@ async def on_startup(app: web.Application):
     await telegram_app.bot.set_webhook(url=full_webhook_url)
     logger.info(f"✅ Webhook registered with URL: {full_webhook_url}")
 
-    await notify_admin(telegram_app.bot, ADMIN_CHAT_IDS, full_webhook_url)
+ for admin_id in ADMIN_IDS:
+    await notify_admin(telegram_app.bot, admin_id, full_webhook_url)
 
 # ─── Admin Notification ─────────────────────────────────────
 # Load ADMIN_IDS from environment variable safely
