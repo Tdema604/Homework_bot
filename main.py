@@ -8,7 +8,7 @@ from telegram.ext import (
 )
 from dotenv import load_dotenv
 from handlers import (
-    start, chat_id, status, reload_config,help_command, 
+    start, chat_id, status, reload_config, help_command, 
     list_routes, add_routes, remove_routes,
     list_senders, clear_senders,
     weekly_homework, clear_homework_log,
@@ -94,6 +94,7 @@ async def on_startup(app: web.Application):
     await telegram_app.bot.set_webhook(url=full_webhook_url)
     logger.info(f"✅ Webhook registered with URL: {full_webhook_url}")
 
+    # Notify Admins about Bot restart
     for admin_id in ADMIN_IDS:
         await notify_admin(telegram_app.bot, admin_id, full_webhook_url)
 
@@ -105,7 +106,6 @@ admin_ids_raw = os.getenv("ADMIN_IDS", "").strip()  # Remove leading/trailing wh
 if not admin_ids_raw:
     logger.warning("⚠️ ADMIN_IDS environment variable is either missing or empty!")
     ADMIN_IDS = set()  # Fallback to an empty set
-
 else:
     # Attempt to parse admin IDs, but be cautious with empty strings
     try:
@@ -118,7 +118,6 @@ else:
 
 # Log the loaded admin IDs
 logger.warning(f"✅ Loaded ADMIN_IDS: {ADMIN_IDS}")
-
 
 # Async function to notify admins
 async def notify_admin(bot, webhook_url):
@@ -148,9 +147,6 @@ async def notify_admin(bot, webhook_url):
         logger.info("✅ Admin(s) notified.")
     except Exception as e:
         logger.error(f"❌ Failed to notify admin(s): {e}")
-
-              await 
-notify_admin(bot,"https://yourwebhook.url")
 
 # ─── Run aiohttp App ────────────────────────────────────────
 web_app = web.Application()
