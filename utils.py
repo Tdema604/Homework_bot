@@ -9,15 +9,19 @@ logger = logging.getLogger(__name__)
 
 # === ROUTE MAP UTILITIES ===
 def is_render_env() -> bool:
-    # Render sets this automatically in all services
+    """
+    Detect if running on Render based on the presence of Render-specific environment variable.
+    """
     return os.getenv("RENDER", "").lower() == "true"
+
 
 def get_routes_map() -> dict:
     """
-    Load routes from either Render env var or local .env file.
+    Load route mappings from ROUTES_MAP environment variable.
+    Format: "123:456,789:1011"
     """
     raw = os.getenv("ROUTES_MAP", "")
-    logger.info(f"📦 Loading ROUTES_MAP from {'Render env' if is_render_env() else '.env/local'}: {raw}")
+    logger.info(f"📦 Loading ROUTES_MAP from {'Render env' if is_render_env() else '.env'}: {raw}")
 
     routes_map = {}
     for pair in raw.split(","):
@@ -31,6 +35,23 @@ def get_routes_map() -> dict:
     logger.info(f"✅ Parsed ROUTES_MAP: {routes_map}")
     return routes_map
 
+
+def get_admin_ids() -> set[int]:
+    """
+    Load admin user IDs from ADMIN_IDS environment variable.
+    Format: "123456,78910"
+    """
+    raw = os.getenv("ADMIN_IDS", "")
+    logger.warning(f"⚠️ ADMIN_IDS environment variable is {'missing' if not raw else 'loaded'}: {raw}")
+
+    try:
+        admin_ids = set(int(x.strip()) for x in raw.split(",") if x.strip().isdigit())
+    except ValueError:
+        logger.error("❌ Failed to parse ADMIN_IDS. Please check format.")
+        admin_ids = set()
+
+    logger.warning(f"✅ Loaded ADMIN_IDS: {admin_ids}")
+    return admin_ids
 
 def save_routes_to_env(routes_map: dict):
     """
