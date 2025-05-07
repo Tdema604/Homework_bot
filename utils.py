@@ -70,31 +70,6 @@ def save_routes_to_env(routes_map: dict):
     logger.info("📝 Updated in-memory ROUTES_MAP (won’t persist to .env)")
 
 
-def load_routes_from_env() -> dict:
-    """
-    Load routes map from the .env file or Render environment variable.
-    Format: "123:456,789:1011"
-    """
-    if is_render_env():
-        raw = os.getenv("ROUTES_MAP", "")
-        logger.info(f"📦 Loading ROUTES_MAP from Render env: {raw}")
-    else:
-        raw = os.getenv("ROUTES_MAP", "")
-        logger.info(f"📦 Loading ROUTES_MAP from .env: {raw}")
-
-    routes_map = {}
-    for pair in raw.split(","):
-        if ":" in pair:
-            try:
-                source, target = map(str.strip, pair.split(":"))
-                routes_map[int(source)] = int(target)
-            except ValueError:
-                logger.warning(f"⚠️ Invalid ROUTES_MAP pair ignored: {pair}")
-
-    logger.info(f"✅ Parsed ROUTES_MAP: {routes_map}")
-    return routes_map
-
-
 # === HOMEWORK DETECTION ===
 def is_homework(message: Message) -> bool:
     if not message.text:
