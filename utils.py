@@ -14,14 +14,17 @@ def is_render_env() -> bool:
     """
     return os.getenv("RENDER", "").lower() == "true"
 
-
 def get_routes_map() -> dict:
     """
     Load route mappings from ROUTES_MAP environment variable.
     Format: "123:456,789:1011"
     """
-    raw = os.getenv("ROUTES_MAP", "")
-    logger.info(f"📦 Loading ROUTES_MAP from {'Render env' if is_render_env() else '.env'}: {raw}")
+    if is_render_env():
+        raw = os.getenv("ROUTES_MAP", "")
+        logger.info(f"📦 Loading ROUTES_MAP from Render env: {raw}")
+    else:
+        raw = os.getenv("ROUTES_MAP", "")
+        logger.info(f"📦 Loading ROUTES_MAP from .env: {raw}")
 
     routes_map = {}
     for pair in raw.split(","):
@@ -35,6 +38,26 @@ def get_routes_map() -> dict:
     logger.info(f"✅ Parsed ROUTES_MAP: {routes_map}")
     return routes_map
 
+def get_admin_ids() -> set[int]:
+    """
+    Load admin user IDs from ADMIN_IDS environment variable.
+    Format: "123456,78910"
+    """
+    if is_render_env():
+        raw = os.getenv("ADMIN_IDS", "")
+        logger.warning(f"⚠️ ADMIN_IDS environment variable is {'missing' if not raw else 'loaded from Render env'}: {raw}")
+    else:
+        raw = os.getenv("ADMIN_IDS", "")
+        logger.warning(f"⚠️ ADMIN_IDS environment variable is {'missing' if not raw else 'loaded from .env'}: {raw}")
+
+    try:
+        admin_ids = set(int(x.strip()) for x in raw.split(",") if x.strip().isdigit())
+    except ValueError:
+        logger.error("❌ Failed to parse ADMIN_IDS. Please check format.")
+        admin_ids = set()
+
+    logger.warning(f"✅ Loaded ADMIN_IDS: {admin_ids}")
+    return admin_ids
 
 def get_admin_ids() -> set[int]:
     """
