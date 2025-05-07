@@ -132,13 +132,13 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.exception("Reload error:")
         await update.message.reply_text("❌ Reload failed.")
 
-async def list_route(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     route = context.bot_data.get("ROUTE_MAP", {})
-    if not routes:
+    if not route:
         await update.message.reply_text("⚠️ No routes configured.")
         return
     msg = "*📚 Active Routes:*\n" + "\n".join(
-        f"• `{s}` ➡️ `{t}`" for s, t in routes.items()
+        f"• `{s}` ➡️ `{t}`" for s, t in route.items()
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
 
