@@ -95,7 +95,11 @@ async def on_startup(app: web.Application):
 # Load ADMIN_IDS from environment variable safely
 
 admin_ids_raw = os.getenv("ADMIN_IDS", "")
-ADMIN_IDS = {int(x.strip()) for x in admin_ids_raw.split(",") if x.strip().isdigit()}
+if not admin_ids_raw.strip():
+    logger.warning("⚠️ ADMIN_IDS env variable is missing or empty!")
+    ADMIN_IDS = set()
+else:
+    ADMIN_IDS = {int(x.strip()) for x in admin_ids_raw.split(",") if x.strip().isdigit()}
 
 async def notify_admin(bot, admin_chat_id, webhook_url):
     try:
