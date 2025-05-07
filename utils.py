@@ -42,15 +42,25 @@ def get_admin_ids() -> set[int]:
     Load admin user IDs from ADMIN_IDS environment variable.
     Format: "123456,78910"
     """
+    # Retrieve the environment variable
     raw = os.getenv("ADMIN_IDS", "")
-    logger.warning(f"⚠️ ADMIN_IDS environment variable is {'missing' if not raw else 'loaded'}: {raw}")
+    
+    if not raw:
+        # If the variable is missing or empty, log a warning
+        logger.warning("⚠️ ADMIN_IDS environment variable is missing or empty.")
+        return set()
+    
+    logger.warning(f"⚠️ ADMIN_IDS environment variable is loaded: {raw}")
 
     try:
+        # Convert the comma-separated string of IDs into a set of integers
         admin_ids = set(int(x.strip()) for x in raw.split(",") if x.strip().isdigit())
     except ValueError:
+        # If parsing fails, log the error and return an empty set
         logger.error("❌ Failed to parse ADMIN_IDS. Please check format.")
-        admin_ids = set()
+        return set()
 
+    # Log the successfully loaded admin IDs
     logger.warning(f"✅ Loaded ADMIN_IDS: {admin_ids}")
     return admin_ids
 
