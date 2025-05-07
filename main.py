@@ -14,7 +14,12 @@ from handlers import (
     weekly_homework, clear_homework_log,
     forward_message
 )
-from utils import get_routes_map
+from utils import get_routes_map, get_admin_ids
+
+# Load environment variables with the utility functions
+ROUTES_MAP = get_routes_map()
+ADMIN_IDS = get_admin_ids()
+
 from datetime import datetime
 import pytz
 
