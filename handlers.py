@@ -109,6 +109,7 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.exception("Reload error:")
         await update.message.reply_text("❌ Reload failed.")
 
+
 async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     chat_id = update.effective_chat.id
@@ -136,39 +137,42 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     forwarded_msg = None
 
     try:
+        # Escape markdown characters in the message text before sending
+        escaped_text = escape_markdown(message.text or message.caption or "")
+
         if message.text:
             forwarded_msg = await context.bot.send_message(
-                chat_id=target_chat_id, text=message.text
+                chat_id=target_chat_id, text=escaped_text, parse_mode=ParseMode.MARKDOWN
             )
         elif message.photo:
             forwarded_msg = await context.bot.send_photo(
                 chat_id=target_chat_id,
                 photo=message.photo[-1].file_id,
-                caption=message.caption,
+                caption=escaped_text,
             )
         elif message.document:
             forwarded_msg = await context.bot.send_document(
                 chat_id=target_chat_id,
                 document=message.document.file_id,
-                caption=message.caption,
+                caption=escaped_text,
             )
         elif message.video:
             forwarded_msg = await context.bot.send_video(
                 chat_id=target_chat_id,
                 video=message.video.file_id,
-                caption=message.caption,
+                caption=escaped_text,
             )
         elif message.audio:
             forwarded_msg = await context.bot.send_audio(
                 chat_id=target_chat_id,
                 audio=message.audio.file_id,
-                caption=message.caption,
+                caption=escaped_text,
             )
         elif message.voice:
             forwarded_msg = await context.bot.send_voice(
                 chat_id=target_chat_id,
                 voice=message.voice.file_id,
-                caption=message.caption,
+                caption=escaped_text,
             )
         elif message.sticker:
             forwarded_msg = await context.bot.send_sticker(
@@ -178,11 +182,15 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Log forwarded homework
         if is_homework(message):
-            content = message.text or message.caption or ""
+            # Define emojis for different media types
+            media_type_emoji = get_media_type_icon(message)
+
+            # Update forwarded logs with emojis for media type
+            content = f"{media_type_emoji} {escaped_text}" if escaped_text else media_type_emoji
             forwarded_logs.append({
                 "timestamp": time.time(),
                 "sender": sender.full_name,
-                "type": get_media_type_icon(message),
+                "type": media_type_emoji,  # Store emoji as the type
                 "content": content,
             })
 
