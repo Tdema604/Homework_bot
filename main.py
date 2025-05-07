@@ -92,6 +92,17 @@ async def on_startup(app: web.Application):
     await notify_admin(telegram_app.bot, ADMIN_CHAT_ID, full_webhook_url)
 
 # ─── Admin Notification ─────────────────────────────────────
+# Load ADMIN_IDS from environment variable safely
+raw_ids = os.getenv("ADMIN_IDS", "")
+try:
+    ADMIN_IDS = {int(x) for x in raw_ids.split(",") if x.strip().isdigit()}
+    if not ADMIN_IDS:
+        raise ValueError("ADMIN_IDS environment variable is set but contains no valid IDs.")
+    logger.info(f"✅ Loaded ADMIN_IDS: {ADMIN_IDS}")
+except Exception as e:
+    logger.error(f"❌ Failed to load ADMIN_IDS from environment: {e}")
+    raise
+
 async def notify_admin(bot, admin_chat_id, webhook_url):
     try:
         routes = telegram_app.bot_data.get("ROUTES_MAP", {})
