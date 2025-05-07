@@ -3,7 +3,7 @@ import logging
 from aiohttp import web
 from telegram import Update
 from telegram.ext import (
-    Application, CommandHandler, MessageHandler,
+    ApplicationBuilder, CommandHandler, MessageHandler,
     ContextTypes, filters
 )
 from dotenv import load_dotenv 
@@ -23,6 +23,8 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("❌ BOT_TOKEN environment variable is missing!")
+
+app = ApplicationBuilder().token(BOT_TOKEN).build()
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 PORT = int(os.getenv("PORT", 10000))
