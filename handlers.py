@@ -121,17 +121,17 @@ async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bt_time = datetime.now(ZoneInfo("Asia/Thimphu"))
     routes = context.bot_data.get("ROUTES_MAP", {})
-    admin_id = context.bot_data.get("ADMIN_CHAT_ID", "Not set")
+    admin_id = context.bot_data.get("ADMIN_CHAT_IDS", "Not set")
     
     await update.message.reply_text(
         "✅ <b>Bot Status</b>\n"
         f"• <b>Uptime:</b> always-on (webhook)\n"
         f"• <b>Active Routes:</b> {len(routes)} source-to-target mappings\n"
-        f"• <b>Admin Chat ID:</b> {admin_id}",
+        f"• <b>Admin Chat IDs:</b> {admin_ids}",
         parse_mode="HTML"
     )
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_ID", "0")):
+    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_IDS", "0")):
         await update.message.reply_text("⛔️ Access denied.")
         return
     try:
@@ -176,7 +176,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(help_text, parse_mode="Markdown")
 
 async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_ID", "0")):
+    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_IDS", "0")):
         await update.message.reply_text("⛔️ Only admin can add routes.")
         return
     try:
@@ -193,7 +193,7 @@ async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Failed to add routes.")
 
 async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_ID", "0")):
+    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_IDS", "0")):
         await update.message.reply_text("⛔️ Only admin can remove routes.")
         return
     try:
@@ -233,14 +233,14 @@ async def clear_homework_log(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text("✅ Homework log cleared.")
 
 async def clear_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_ID", "0")):
+    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_IDS", "0")):
         await update.message.reply_text("⛔️ You are not authorized.")
         return
     context.bot_data["SENDER_ACTIVITY"] = {}
     await update.message.reply_text("✅ Sender log cleared.")
 
 async def list_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_ID", "0")):
+    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_IDS", "0")):
         await update.message.reply_text("⛔️ You are not authorized.")
         return
     activity = context.bot_data.get("SENDER_ACTIVITY", {})
