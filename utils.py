@@ -13,7 +13,6 @@ def is_render_env() -> bool:
     """
     return os.getenv("RENDER", "").lower() == "true"
 
-
 def get_routes_map() -> dict:
     """
     Load route mappings from ROUTES_MAP environment variable.
@@ -38,7 +37,6 @@ def get_routes_map() -> dict:
     logger.info(f"✅ Parsed ROUTES_MAP: {routes_map}")
     return routes_map
 
-
 def get_admin_ids() -> set[int]:
     """
     Load admin user IDs from ADMIN_IDS environment variable.
@@ -56,6 +54,25 @@ def get_admin_ids() -> set[int]:
     logger.warning(f"✅ Loaded ADMIN_IDS: {admin_ids}")
     return admin_ids
 
+def load_routes_from_env() -> dict:
+    """
+    Load route mappings from the ROUTES_MAP environment variable.
+    Format: "123:456,789:1011"
+    """
+    raw = os.getenv("ROUTES_MAP", "")
+    logger.info(f"📦 Loading ROUTES_MAP: {raw}")
+
+    routes_map = {}
+    for pair in raw.split(","):
+        if ":" in pair:
+            try:
+                source, target = map(str.strip, pair.split(":"))
+                routes_map[int(source)] = int(target)
+            except ValueError:
+                logger.warning(f"⚠️ Invalid ROUTES_MAP pair ignored: {pair}")
+
+    logger.info(f"✅ Parsed ROUTES_MAP: {routes_map}")
+    return routes_map
 
 def save_routes_to_env(routes_map: dict):
     """
