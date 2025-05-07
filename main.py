@@ -6,12 +6,11 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler,
     ContextTypes, filters
 )
-from dotenv import load_dotenv
-from utils import forward_message
+from dotenv import load_dotenv 
 from handlers import (
     start, chat_id, status, reload_config, help_command,
     list_routes, add_routes, remove_routes,
-    list_senders, clear_senders,
+    list_senders, clear_senders,forward_message,
     weekly_homework, clear_homework_log
 )
 from utils import get_routes_map, get_admin_ids
