@@ -16,7 +16,6 @@ from utils import (
     get_routes_map,
 )
 
-# Setup logging
 logger = logging.getLogger(__name__)
 
 # === Time Helpers ===
@@ -40,16 +39,6 @@ def get_bot_mood():
     return "I'm ready to help! 🤩"
 
 # === Command Handlers ===
-async def some_admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    admin_ids = context.bot_data.get("ADMIN_IDS", set())
-    
-    if update.effective_user.id not in admin_ids:
-        await update.message.reply_text("❌ You are not authorized to use this command.")
-        return
-
-    # Proceed with the command if authorized
-    await update.message.reply_text("✅ Authorized. Running admin command...")
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await update.message.reply_text(
@@ -60,57 +49,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!"
     )
     logger.info("✅ /start command triggered.")
-
-# === Forwarding Handler ===
-async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Protect command messages like /start from being intercepted
-    if update.message and update.message.text and update.message.text.startswith("/"):
-        return
-
-    # Your existing message forwarding logic here
-    # For example:
-    msg = update.message
-    if not msg:
-        return
-
-    # Skip forwarding junk messages
-    if msg.text and "/nayavpn_shopbot" in msg.text:
-        return
-
-    # Access routing config
-    route_map = context.bot_data.get("ROUTES_MAP", {})
-    allowed_sources = context.bot_data.get("ALLOWED_SOURCE_CHAT_IDS", [])
-
-    source_chat_id = update.effective_chat.id
-    if source_chat_id not in allowed_sources:
-        return
-
-    # Forward to mapped destinations
-    targets = route_map.get(str(source_chat_id), [])
-    for target_id in targets:
-        try:
-            if msg.text:
-                await context.bot.send_message(target_id, msg.text)
-            elif msg.photo:
-                await context.bot.send_photo(target_id, photo=msg.photo[-1].file_id, caption=msg.caption or "")
-            elif msg.document:
-                await context.bot.send_document(target_id, document=msg.document.file_id, caption=msg.caption or "")
-            # Add support for other media types if needed
-        except Exception as e:
-            logger.error(f"❌ Failed to forward to {target_id}: {e}")
-
-# === Command Handlers ===
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    await update.message.reply_text(
-        f"👋 Hello, {user.first_name or 'there'}!\n"
-        f"{get_dynamic_greeting()}\n\n"
-        "🔔 Tip: Use /summary to get today’s homework again!\n\n"
-        f"{get_bot_mood()}\n"
-        "I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!"
-    )
-    logger.info("✅ /start command triggered.")
-
 
 async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -119,10 +57,7 @@ async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    bt_time = datetime.now(ZoneInfo("Asia/Thimphu"))
     routes = context.bot_data.get("ROUTES_MAP", {})
-    admin_id = context.bot_data.get("ADMIN_CHAT_IDS", "Not set")
-    
     await update.message.reply_text(
         "✅ <b>Bot Status</b>\n"
         f"• <b>Uptime:</b> always-on (webhook)\n"
@@ -130,12 +65,44 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• <b>Admin Chat IDs:</b> {context.bot_data.get('ADMIN_CHAT_IDS', [])}",
         parse_mode="HTML"
     )
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    admin_ids = context.bot_data.get("ADMIN_CHAT_IDS", [])
+
+    if user_id in admin_ids:
+        help_text = (
+            "👋 *Admin Help Menu*\n\n"
+            "/start – Greet the bot\n"
+            "/status – Bot health check\n"
+            "/chatid – Get chat ID\n"
+            "/list_routes – List all routes\n"
+            "/add_routes [src] [dest] – Add a new route\n"
+            "/remove_routes [src] – Remove a route\n"
+            "/reload_config – Reload routes from .env\n"
+            "/weekly_summary – Get a 7-day homework report\n"
+            "/clear_homework_log – Clear the homework log\n"
+            "/list_senders – View recent sender activity\n"
+            "/clear_senders – Clear sender activity\n"
+        )
+    else:
+        help_text = (
+            "👋 *Parent/Teacher Help Menu*\n\n"
+            "/start – Greet the bot\n"
+            "/status – Check if the bot is online\n"
+            "/summary – Get today's homework summary\n\n"
+            "_This bot automatically forwards homework from teachers to parents._"
+        )
+
+    await update.message.reply_text(help_text, parse_mode="Markdown")
+
+# === Route Management Commands ===
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_IDS", "0")):
+    if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
         await update.message.reply_text("⛔️ Access denied.")
         return
     try:
-        new_map = get_route_map()
+        new_map = get_routes_map()
         context.bot_data["ROUTES_MAP"] = new_map
         await update.message.reply_text("♻️ Route map reloaded from .env successfully.")
     except Exception as e:
@@ -143,7 +110,10 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Reload failed.")
 
 async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    route = context.bot_data.get("ROUTES_MAP", {})
+    if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
+        await update.message.reply_text("⛔️ Only admin can list routes.")
+        return
+    routes = context.bot_data.get("ROUTES_MAP", {})
     if not routes:
         await update.message.reply_text("⚠️ No routes configured.")
         return
@@ -152,31 +122,8 @@ async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    is_admin = user_id in context.bot_data.get("ADMIN_CHAT_IDS", set())
-
-    if is_admin:
-        help_text = (
-            "👋 *Admin Help Menu*\n\n"
-            "/start – Greet the bot\n"
-            "/status – Bot health check\n"
-            "/weekly_summary – Get a 7-day homework report\n"
-            "/clear_homework_log – Clear the homework log\n"
-            "/list_senders – View recent sender activity\n"
-        )
-    else:
-        help_text = (
-            "👋 *Parent/Teacher Help Menu*\n\n"
-            "/start – Greet the bot\n"
-            "/status – Check if the bot is online\n\n"
-            "_This bot automatically forwards homework from teachers to parents._"
-        )
-
-    await update.message.reply_text(help_text, parse_mode="Markdown")
-
 async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_IDS", "0")):
+    if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
         await update.message.reply_text("⛔️ Only admin can add routes.")
         return
     try:
@@ -193,12 +140,12 @@ async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Failed to add routes.")
 
 async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_IDS", "0")):
+    if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
         await update.message.reply_text("⛔️ Only admin can remove routes.")
         return
     try:
         source_id = int(context.args[0])
-        if context.bot_data["ROUTE_MAP"].pop(source_id, None):
+        if context.bot_data["ROUTES_MAP"].pop(source_id, None):
             save_routes_to_env(context.bot_data["ROUTES_MAP"])
             await update.message.reply_text(
                 f"🗑️ Route removed: `{source_id}`", parse_mode="Markdown"
@@ -208,10 +155,10 @@ async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         await update.message.reply_text("❗ Error processing command.")
 
+# === Logs and Activity Commands ===
 async def weekly_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logs = [
-        l
-        for l in context.bot_data.get("FORWARDED_LOGS", [])
+        l for l in context.bot_data.get("FORWARDED_LOGS", [])
         if l["timestamp"] >= time.time() - 7 * 86400
     ]
     if not logs:
@@ -226,21 +173,21 @@ async def weekly_homework(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode="MarkdownV2")
 
 async def clear_homework_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_ID", "0")):
+    if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
         await update.message.reply_text("⛔️ You can't clear this.")
         return
     context.bot_data["FORWARDED_LOGS"] = []
     await update.message.reply_text("✅ Homework log cleared.")
 
 async def clear_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_IDS", "0")):
+    if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
         await update.message.reply_text("⛔️ You are not authorized.")
         return
     context.bot_data["SENDER_ACTIVITY"] = {}
     await update.message.reply_text("✅ Sender log cleared.")
 
 async def list_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != int(os.getenv("ADMIN_CHAT_IDS", "0")):
+    if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
         await update.message.reply_text("⛔️ You are not authorized.")
         return
     activity = context.bot_data.get("SENDER_ACTIVITY", {})
