@@ -15,6 +15,8 @@ from utils import (
     save_routes_to_env,
     get_routes_map,
 )
+from html import escape
+escaped_text = escape(message.text or message.caption or "")
 
 logger = logging.getLogger(__name__)
 
