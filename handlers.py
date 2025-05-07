@@ -17,7 +17,6 @@ from utils import (
     get_routes_map,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -130,6 +129,9 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Escape special characters for safe display
         escaped_text = escape(message.text or message.caption or "")
 
+# Escape text/caption for HTML
+    caption_html = html.escape(message.caption or message.text or "")
+
         if message.text:
             forwarded_msg = await context.bot.send_message(
                 chat_id=target_chat_id, text=escaped_text, parse_mode=ParseMode.HTML
@@ -190,7 +192,6 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print("Forwarding failed:", e)
 
-caption_html = html.escape(message.caption or message.text or "")
 
 # === Route Management Commands ===
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
