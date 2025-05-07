@@ -45,6 +45,7 @@ def setup_bot_handlers(app: Application):
         ("start", start),
         ("id", chat_id),
         ("status", status),
+        ("help", help_command),  # ✅ Add this line
         ("reload", reload_config),
         ("listroutes", list_routes),
         ("addroutes", add_routes),
