@@ -22,15 +22,32 @@ import pytz
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+if not BOT_TOKEN:
+    raise RuntimeError("❌ BOT_TOKEN environment variable is missing!")
+
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 PORT = int(os.getenv("PORT", 10000))
 WEBHOOK_PATH = "/webhook"
-ADMIN_CHAT_IDS = int(os.getenv("ADMIN_CHAT_ID", "0"))
+BOT_VERSION = "v1.3.2"
+
+# ─── Parse ADMIN_IDS Early ─────────────────────────────────
+admin_ids_raw = os.getenv("ADMIN_IDS", "").strip()
+if not admin_ids_raw:
+    logging.warning("⚠️ ADMIN_IDS environment variable is either missing or empty!")
+    ADMIN_IDS = set()
+else:
+    try:
+        ADMIN_IDS = {int(x.strip()) for x in admin_ids_raw.split(",") if x.strip().isdigit()}
+        if not ADMIN_IDS:
+            raise ValueError("No valid admin IDs found after parsing.")
+    except ValueError as e:
+        logging.error(f"❌ Error while parsing ADMIN_IDS: {e}")
+        ADMIN_IDS = set()
+logging.info(f"✅ Loaded ADMIN_IDS: {ADMIN_IDS}")
+
 ALLOWED_SOURCE_CHAT_IDS = [
     int(cid.strip()) for cid in os.getenv("SOURCE_CHAT_IDS", "").split(",") if cid.strip()
 ]
-
-BOT_VERSION = "v1.3.2"
 
 # ─── Logging Setup ──────────────────────────────────────────
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -98,7 +115,7 @@ async def notify_admin(bot, webhook_url):
 
 # ─── aiohttp Startup Hook ───────────────────────────────────
 async def on_startup(app: web.Application):
-    logger.warning(f"✅ RUNTIME ROUTES_MAP raw string: {os.getenv('ROUTES_MAP')}")
+    logger.info(f"✅ RUNTIME ROUTES_MAP raw string: {os.getenv('ROUTES_MAP')}")
     telegram_app.bot_data["ROUTES_MAP"] = get_routes_map()
     telegram_app.bot_data["ALLOWED_SOURCE_CHAT_IDS"] = ALLOWED_SOURCE_CHAT_IDS
     telegram_app.bot_data["ADMIN_CHAT_IDS"] = ADMIN_IDS
@@ -111,25 +128,7 @@ async def on_startup(app: web.Application):
     await telegram_app.bot.set_webhook(url=full_webhook_url)
     logger.info(f"✅ Webhook registered with URL: {full_webhook_url}")
 
-    for admin_id in ADMIN_IDS:
-        await notify_admin(telegram_app.bot, full_webhook_url)
-
-# ─── Load ADMIN_IDS Safely ──────────────────────────────────
-admin_ids_raw = os.getenv("ADMIN_IDS", "").strip()
-
-if not admin_ids_raw:
-    logger.warning("⚠️ ADMIN_IDS environment variable is either missing or empty!")
-    ADMIN_IDS = set()
-else:
-    try:
-        ADMIN_IDS = {int(x.strip()) for x in admin_ids_raw.split(",") if x.strip().isdigit()}
-        if not ADMIN_IDS:
-            raise ValueError("No valid admin IDs found after parsing.")
-    except ValueError as e:
-        logger.error(f"❌ Error while parsing ADMIN_IDS: {e}")
-        ADMIN_IDS = set()
-
-logger.warning(f"✅ Loaded ADMIN_IDS: {ADMIN_IDS}")
+    await notify_admin(telegram_app.bot, full_webhook_url)
 
 # ─── Run aiohttp App ────────────────────────────────────────
 web_app = web.Application()
