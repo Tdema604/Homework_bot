@@ -44,12 +44,8 @@ def get_admin_ids() -> set[int]:
     Load admin user IDs from ADMIN_IDS environment variable.
     Format: "123456,78910"
     """
-    if is_render_env():
-        raw = os.getenv("ADMIN_IDS", "")
-        logger.warning(f"⚠️ ADMIN_IDS environment variable is {'missing' if not raw else 'loaded from Render env'}: {raw}")
-    else:
-        raw = os.getenv("ADMIN_IDS", "")
-        logger.warning(f"⚠️ ADMIN_IDS environment variable is {'missing' if not raw else 'loaded from .env'}: {raw}")
+    raw = os.getenv("ADMIN_IDS", "")
+    logger.warning(f"⚠️ ADMIN_IDS environment variable is {'missing' if not raw else 'loaded'}: {raw}")
 
     try:
         admin_ids = set(int(x.strip()) for x in raw.split(",") if x.strip().isdigit())
@@ -125,3 +121,11 @@ def get_media_type_icon(message: Message) -> str:
         return "🎤 "  # Voice message
     else:
         return "🔁 "  # Default icon for other media types
+
+
+def escape_markdown(text: str) -> str:
+    """
+    Escape MarkdownV2 special characters for safe message formatting.
+    """
+    escape_chars = r'\_*[]()~`>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
