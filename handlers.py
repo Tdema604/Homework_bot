@@ -20,7 +20,6 @@ from utils import (
 
 logger = logging.getLogger(__name__)
 
-caption_html = html.escape(message.caption or message.text or "")
 
 # === Time Helpers ===
 def get_local_bhutan_time():
@@ -190,6 +189,8 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         print("Forwarding failed:", e)
+
+caption_html = html.escape(message.caption or message.text or "")
 
 # === Route Management Commands ===
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
