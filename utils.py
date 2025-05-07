@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 # === ROUTE MAP UTILITIES ===
 def load_routes_from_env():
     """
-    Load route map from the .env file.
+    Load routes map from the .env file.
     Expected format: '123456:-11111,234567:-22222'
     """
     routes_str = os.getenv('ROUTES_MAP', '')
@@ -27,7 +27,7 @@ def load_routes_from_env():
             print(f"Error parsing ROUTES_MAP: {e}")
     return routes_map
 
-def get_route_map() -> dict:
+def get_routes_map() -> dict:
     """
     Load route mapping from the .env variable ROUTES_MAP.
     Format: "123:456,789:1011"
@@ -52,10 +52,10 @@ def get_route_map() -> dict:
 
 def save_routes_to_env(route_map: dict):
     """
-    Save route map back into memory (os.environ) in the same format.
+    Save routes map back into memory (os.environ) in the same format.
     This does NOT persist to disk. For development/testing only.
     """
-    os.environ["ROUTES_MAP"] = ",".join(f"{k}:{v}" for k, v in route_map.items())
+    os.environ["ROUTES_MAP"] = ",".join(f"{k}:{v}" for k, v in routes_map.items())
     logger.info("📝 Updated in-memory ROUTES_MAP (won’t persist to .env)")
 
 def escape_markdown(text: str) -> str:
