@@ -2,7 +2,6 @@ import os
 import logging
 from telegram import Message
 import re
-import os
 import json
 
 logger = logging.getLogger(__name__)
@@ -13,6 +12,7 @@ def is_render_env() -> bool:
     Detect if running on Render based on the presence of Render-specific environment variable.
     """
     return os.getenv("RENDER", "").lower() == "true"
+
 
 def get_routes_map() -> dict:
     """
@@ -38,6 +38,7 @@ def get_routes_map() -> dict:
     logger.info(f"✅ Parsed ROUTES_MAP: {routes_map}")
     return routes_map
 
+
 def get_admin_ids() -> set[int]:
     """
     Load admin user IDs from ADMIN_IDS environment variable.
@@ -59,22 +60,6 @@ def get_admin_ids() -> set[int]:
     logger.warning(f"✅ Loaded ADMIN_IDS: {admin_ids}")
     return admin_ids
 
-def get_admin_ids() -> set[int]:
-    """
-    Load admin user IDs from ADMIN_IDS environment variable.
-    Format: "123456,78910"
-    """
-    raw = os.getenv("ADMIN_IDS", "")
-    logger.warning(f"⚠️ ADMIN_IDS environment variable is {'missing' if not raw else 'loaded'}: {raw}")
-
-    try:
-        admin_ids = set(int(x.strip()) for x in raw.split(",") if x.strip().isdigit())
-    except ValueError:
-        logger.error("❌ Failed to parse ADMIN_IDS. Please check format.")
-        admin_ids = set()
-
-    logger.warning(f"✅ Loaded ADMIN_IDS: {admin_ids}")
-    return admin_ids
 
 def save_routes_to_env(routes_map: dict):
     """
@@ -84,12 +69,30 @@ def save_routes_to_env(routes_map: dict):
     os.environ["ROUTES_MAP"] = ",".join(f"{k}:{v}" for k, v in routes_map.items())
     logger.info("📝 Updated in-memory ROUTES_MAP (won’t persist to .env)")
 
-def escape_markdown(text: str) -> str:
+
+def load_routes_from_env() -> dict:
     """
-    Escape MarkdownV2 special characters for safe message formatting.
+    Load routes map from the .env file or Render environment variable.
+    Format: "123:456,789:1011"
     """
-    escape_chars = r'\_*[]()~`>#+-=|{}.!'
-    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
+    if is_render_env():
+        raw = os.getenv("ROUTES_MAP", "")
+        logger.info(f"📦 Loading ROUTES_MAP from Render env: {raw}")
+    else:
+        raw = os.getenv("ROUTES_MAP", "")
+        logger.info(f"📦 Loading ROUTES_MAP from .env: {raw}")
+
+    routes_map = {}
+    for pair in raw.split(","):
+        if ":" in pair:
+            try:
+                source, target = map(str.strip, pair.split(":"))
+                routes_map[int(source)] = int(target)
+            except ValueError:
+                logger.warning(f"⚠️ Invalid ROUTES_MAP pair ignored: {pair}")
+
+    logger.info(f"✅ Parsed ROUTES_MAP: {routes_map}")
+    return routes_map
 
 
 # === HOMEWORK DETECTION ===
