@@ -2,10 +2,7 @@ import os
 import logging
 from aiohttp import web
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler,
-    ContextTypes, filters
-)
+from telegram.ext import (Application, ApplicationBuilder, CommandHandler, MessageHandler, filters )
 from dotenv import load_dotenv 
 from handlers import (
     start, chat_id, status, reload_config, help_command,
