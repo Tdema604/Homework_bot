@@ -14,7 +14,7 @@ from handlers import (
     weekly_homework, clear_homework_log,
     forward_message
 )
-from utils import get_route_map
+from utils import get_routes_map
 from datetime import datetime
 import pytz
 
