@@ -154,7 +154,7 @@ async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    is_admin = user_id in ADMIN_IDS
+    is_admin = user_id in context.bot_data.get("ADMIN_CHAT_IDS", set())
 
     if is_admin:
         help_text = (
