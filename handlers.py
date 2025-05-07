@@ -109,6 +109,86 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.exception("Reload error:")
         await update.message.reply_text("❌ Reload failed.")
 
+async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message
+    chat_id = update.effective_chat.id
+    routes = context.bot_data.get("ROUTES_MAP", {})
+    sender_activity = context.bot_data.setdefault("SENDER_ACTIVITY", {})
+    forwarded_logs = context.bot_data.setdefault("FORWARDED_LOGS", [])
+
+    # Block spammy bots
+    if message.text and "/nayavpn_shopbot@" in message.text:
+        return
+
+    # Track sender activity
+    sender = update.effective_user
+    sender_activity[sender.id] = {
+        "name": sender.full_name,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "last_message": message.text or message.caption or "📎 Media",
+    }
+
+    # Check if chat is in routes
+    if chat_id not in routes:
+        return
+
+    target_chat_id = routes[chat_id]
+    forwarded_msg = None
+
+    try:
+        if message.text:
+            forwarded_msg = await context.bot.send_message(
+                chat_id=target_chat_id, text=message.text
+            )
+        elif message.photo:
+            forwarded_msg = await context.bot.send_photo(
+                chat_id=target_chat_id,
+                photo=message.photo[-1].file_id,
+                caption=message.caption,
+            )
+        elif message.document:
+            forwarded_msg = await context.bot.send_document(
+                chat_id=target_chat_id,
+                document=message.document.file_id,
+                caption=message.caption,
+            )
+        elif message.video:
+            forwarded_msg = await context.bot.send_video(
+                chat_id=target_chat_id,
+                video=message.video.file_id,
+                caption=message.caption,
+            )
+        elif message.audio:
+            forwarded_msg = await context.bot.send_audio(
+                chat_id=target_chat_id,
+                audio=message.audio.file_id,
+                caption=message.caption,
+            )
+        elif message.voice:
+            forwarded_msg = await context.bot.send_voice(
+                chat_id=target_chat_id,
+                voice=message.voice.file_id,
+                caption=message.caption,
+            )
+        elif message.sticker:
+            forwarded_msg = await context.bot.send_sticker(
+                chat_id=target_chat_id,
+                sticker=message.sticker.file_id,
+            )
+
+        # Log forwarded homework
+        if is_homework(message):
+            content = message.text or message.caption or ""
+            forwarded_logs.append({
+                "timestamp": time.time(),
+                "sender": sender.full_name,
+                "type": get_media_type_icon(message),
+                "content": content,
+            })
+
+    except Exception as e:
+        print("Forwarding failed:", e)
+
 async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
         await update.message.reply_text("⛔️ Only admin can list routes.")
