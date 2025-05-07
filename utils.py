@@ -8,35 +8,17 @@ import json
 logger = logging.getLogger(__name__)
 
 # === ROUTE MAP UTILITIES ===
-def load_routes_from_env():
-    """
-    Load routes map from the .env file.
-    Expected format: '123456:-11111,234567:-22222'
-    """
-    routes_str = os.getenv('ROUTES_MAP', '')
-    routes_map = {}
-
-    if routes_str:
-        try:
-            # Parsing the route map from string format to dictionary
-            for pair in routes_str.split(','):
-                if ':' in pair:
-                    source, target = map(int, pair.split(':'))
-                    routes_map[source] = target
-        except ValueError as e:
-            print(f"Error parsing ROUTES_MAP: {e}")
-    return routes_map
+def is_render_env() -> bool:
+    # Render sets this automatically in all services
+    return os.getenv("RENDER", "").lower() == "true"
 
 def get_routes_map() -> dict:
     """
-    Load routes mapping from the .env variable ROUTES_MAP.
-    Format: "123:456,789:1011"
-    Returns a dictionary {123: 456, 789: 1011}
+    Load routes from either Render env var or local .env file.
     """
-    # Log the raw content of ROUTES_MAP loaded from .env
     raw = os.getenv("ROUTES_MAP", "")
-    logger.info(f"📦 Loading ROUTES_MAP from .env: {raw}")
-    
+    logger.info(f"📦 Loading ROUTES_MAP from {'Render env' if is_render_env() else '.env/local'}: {raw}")
+
     routes_map = {}
     for pair in raw.split(","):
         if ":" in pair:
