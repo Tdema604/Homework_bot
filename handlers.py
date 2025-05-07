@@ -47,14 +47,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{get_dynamic_greeting()}\n\n"
         "🔔 Tip: Use /summary to get today’s homework again!\n\n"
         f"{get_bot_mood()}\n"
-        "I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!"
+        "I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!",
+        parse_mode=ParseMode.HTML
     )
-    logger.info("✅ /start command triggered.")
 
 async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        f"🆔 Chat ID: `{update.effective_chat.id}`",
-        parse_mode="Markdown",
+        f"🆔 Chat ID: <code>{update.effective_chat.id}</code>",
+        parse_mode=ParseMode.HTML,
     )
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -64,7 +64,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• <b>Uptime:</b> always-on (webhook)\n"
         f"• <b>Active Routes:</b> {len(routes)} source-to-target mappings\n"
         f"• <b>Admin Chat IDs:</b> {context.bot_data.get('ADMIN_CHAT_IDS', [])}",
-        parse_mode="HTML"
+        parse_mode=ParseMode.HTML
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -180,6 +180,73 @@ async def forward_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.exception("Forwarding failed: %s", e)
 
-# Route Management, Logging, Admin Functions unchanged...
+# === Admin Utilities ===
+async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    load_dotenv()
+    context.bot_data["ROUTES_MAP"] = get_routes_map()
+    await update.message.reply_text("♻️ Configuration reloaded from .env!", parse_mode=ParseMode.HTML)
 
-# (You already pasted all of these and they are valid!)
+async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    routes = context.bot_data.get("ROUTES_MAP", {})
+    if not routes:
+        await update.message.reply_text("🚫 No active routes found.")
+        return
+    formatted = "\n".join([f"<code>{k}</code> ➜ <code>{v}</code>" for k, v in routes.items()])
+    await update.message.reply_text(f"📍 <b>Active Routes</b>\n{formatted}", parse_mode=ParseMode.HTML)
+
+async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        src, dest = int(context.args[0]), int(context.args[1])
+        routes = context.bot_data.setdefault("ROUTES_MAP", {})
+        routes[src] = dest
+        save_routes_to_env(routes)
+        await update.message.reply_text(f"✅ Route added: <code>{src}</code> ➜ <code>{dest}</code>", parse_mode=ParseMode.HTML)
+    except Exception as e:
+        logger.exception(e)
+        await update.message.reply_text("⚠️ Usage: /add_routes [source_chat_id] [destination_chat_id]")
+
+async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        src = int(context.args[0])
+        routes = context.bot_data.setdefault("ROUTES_MAP", {})
+        if src in routes:
+            del routes[src]
+            save_routes_to_env(routes)
+            await update.message.reply_text(f"❌ Route removed for source: <code>{src}</code>", parse_mode=ParseMode.HTML)
+        else:
+            await update.message.reply_text("❗ Source chat ID not found in routes.")
+    except Exception as e:
+        logger.exception(e)
+        await update.message.reply_text("⚠️ Usage: /remove_routes [source_chat_id]")
+
+# === Homework Log Utilities ===
+async def weekly_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logs = context.bot_data.get("FORWARDED_LOGS", [])
+    one_week_ago = time.time() - 7 * 86400
+    summary = [log for log in logs if log["timestamp"] >= one_week_ago]
+    if not summary:
+        await update.message.reply_text("📭 No homework forwarded in the past 7 days.")
+        return
+    formatted = "\n".join(
+        f"{log['type']} <b>{log['sender']}</b>: {html.escape(log['content'])}" for log in summary[-20:]
+    )
+    await update.message.reply_text(f"🗓️ <b>Last 7 Days Summary</b>\n\n{formatted}", parse_mode=ParseMode.HTML)
+
+async def clear_homework_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.bot_data["FORWARDED_LOGS"] = []
+    await update.message.reply_text("🧹 Homework log cleared!", parse_mode=ParseMode.HTML)
+
+# === Sender Activity Utilities ===
+async def list_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    activity = context.bot_data.get("SENDER_ACTIVITY", {})
+    if not activity:
+        await update.message.reply_text("📭 No sender activity recorded.")
+        return
+    lines = []
+    for user_id, data in activity.items():
+        lines.append(f"<b>{html.escape(data['name'])}</b> ({user_id})\n🕒 {data['timestamp']}\n📩 {html.escape(data['last_message'])}")
+    await update.message.reply_text("🧾 <b>Recent Sender Activity</b>\n\n" + "\n\n".join(lines), parse_mode=ParseMode.HTML)
+
+async def clear_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.bot_data["SENDER_ACTIVITY"] = {}
+    await update.message.reply_text("🧹 Sender log cleared!", parse_mode=ParseMode.HTML)
