@@ -1,100 +1,111 @@
 import os
 import logging
-import re
-from dotenv import load_dotenv
 from telegram import Message
+import re
+import os
+import json
 
-# Correct logger name initialization
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-def load_env():
-    load_dotenv()
-    logger.info("Environment variables loaded.")
+# === ROUTE MAP UTILITIES ===
+def load_routes_from_env():
+    """
+    Load route map from the .env file.
+    Expected format: '123456:-11111,234567:-22222'
+    """
+    routes_str = os.getenv('ROUTES_MAP', '')
+    routes_map = {}
 
-# Load MarkdownV2 escape function
-def escape_markdown(text: str) -> str:
-    if not text:
-        return ""
-    # Escape characters required by MarkdownV2
-    escape_chars = r"_*[]()~`>#+-=|{}.!"
-    return ''.join(['\\' + c if c in escape_chars else c for c in text])
+    if routes_str:
+        try:
+            # Parsing the route map from string format to dictionary
+            for pair in routes_str.split(','):
+                if ':' in pair:
+                    source, target = map(int, pair.split(':'))
+                    routes_map[source] = target
+        except ValueError as e:
+            print(f"Error parsing ROUTES_MAP: {e}")
+    return routes_map
 
-# ROUTE MAP PERSISTENCE
-def initialize_routes(bot_data):
-    route_map = bot_data.get("ROUTE_MAP", {})
-    if not isinstance(route_map, dict):
-        raise ValueError("ROUTE_MAP must be a dictionary")
+def get_route_map() -> dict:
+    """
+    Load route mapping from the .env variable ROUTES_MAP.
+    Format: "123:456,789:1011"
+    Returns a dictionary {123: 456, 789: 1011}
+    """
+    # Log the raw content of ROUTES_MAP loaded from .env
+    raw = os.getenv("ROUTES_MAP", "")
+    logger.info(f"📦 Loading ROUTES_MAP from .env: {raw}")
     
-def load_routes_from_file() -> dict:
-    """Load routing map from JSON file on disk."""
-    if not os.path.exists(ROUTE_FILE):
-        logger.warning("⚠️ No routes.json found. Starting with empty route map.")
-        return {}
-    try:
-        with open(ROUTE_FILE, "r") as f:
-            data = json.load(f)
-            logger.info(f"✅ Loaded {len(data)} routes from routes.json.")
-            return {int(k): v for k, v in data.items()}
-    except Exception as e:
-        logger.exception("🚨 Failed to load routes from file:")
-        return {}
+    routes_map = {}
+    for pair in raw.split(","):
+        if ":" in pair:
+            try:
+                source, target = map(str.strip, pair.split(":"))
+                routes_map[int(source)] = int(target)
+            except ValueError:
+                logger.warning(f"⚠️ Invalid ROUTES_MAP pair ignored: {pair}")
 
-def save_routes_to_file(route_map: dict):
-    """Save the routing map to a JSON file on disk."""
-    try:
-        with open(ROUTE_FILE, "w") as f:
-            json.dump({str(k): v for k, v in route_map.items()}, f, indent=2)
-        logger.info("💾 Routes saved to routes.json.")
-    except Exception as e:
-        logger.exception("🚨 Failed to save routes to file:")
+    logger.info(f"✅ Parsed ROUTES_MAP: {routes_map}")
+    return routes_map
 
-# Enhanced homework detection with spam filtering and keyword scoring
+
+def save_routes_to_env(route_map: dict):
+    """
+    Save route map back into memory (os.environ) in the same format.
+    This does NOT persist to disk. For development/testing only.
+    """
+    os.environ["ROUTES_MAP"] = ",".join(f"{k}:{v}" for k, v in route_map.items())
+    logger.info("📝 Updated in-memory ROUTES_MAP (won’t persist to .env)")
+
+def escape_markdown(text: str) -> str:
+    """
+    Escape MarkdownV2 special characters for safe message formatting.
+    """
+    escape_chars = r'\_*[]()~`>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
+
+
+# === HOMEWORK DETECTION ===
 def is_homework(message: Message) -> bool:
     if not message.text:
-        return False  # Explicitly return False if no text is present
+        return False
 
     text = message.text.lower()
 
-    # List of phrases considered as spam
     spam_phrases = [
         "click here", "free gift", "bonus", "subscribe",
         "win", ".icu", ".xyz", "offer", "buy now", "cash prize"
     ]
-    # If any of the spam phrases are found, ignore the message
     if any(phrase in text for phrase in spam_phrases):
         return False
 
-    # Strong keywords related to homework
     strong_keywords = [
         "homework", "hw", "assignment", "classwork", "task", "work", 
-    "worksheet", "project", "activity", "practice", 
-    "revision", "test prep", "reading", "notes", "prep", "quiz", "exam",
-    "deadline", "submission", "due", "final", "presentation", "lab report",
-    "writeup", "summary", "essay", "recap", "module", "draft",
-    "slides", "questions", "maths", "science", "english", "dzongkha",
-    "to-do", "school stuff", "pdf", "page no", "page", "write", 
-    "do this", "read", "solve", "finish", "study", "submit", 
-    "📝", "📚", "✍️", "✅", "📖"
-
+        "worksheet", "project", "activity", "practice", 
+        "revision", "test prep", "reading", "notes", "prep", "quiz", "exam",
+        "deadline", "submission", "due", "final", "presentation", "lab report",
+        "writeup", "summary", "essay", "recap", "module", "draft",
+        "slides", "questions", "maths", "science", "english", "dzongkha",
+        "to-do", "school stuff", "pdf", "page no", "page", "write", 
+        "do this", "read", "solve", "finish", "study", "submit", 
+        "📝", "📚", "✍️", "✅", "📖"
     ]
-    # Weak keywords that might relate to homework
+
     weak_keywords = [
         "work", "read", "write", "draw", "solve", "fill",
         "copy", "prepare", "practice", "home task"
     ]
 
-    # Count hits for strong and weak keywords
     strong_hits = sum(1 for word in strong_keywords if word in text)
     weak_hits = sum(1 for word in weak_keywords if word in text)
     total_score = (strong_hits * 2) + weak_hits
 
-    # Specific hints like "page", "submit", "q.", etc.
     hints = ["page", "submit", "due", "q.", "ex.", "exercise", "copy this"]
     pattern_hits = sum(1 for h in hints if h in text)
 
-    # If total score or pattern hits meet threshold, it's considered homework
     return total_score + pattern_hits >= 3 or len(text) > 50
+
 
 # Define media type icons based on message content
 def get_media_type_icon(message: Message) -> str:
@@ -110,21 +121,3 @@ def get_media_type_icon(message: Message) -> str:
         return "🎤 "  # Voice message
     else:
         return "🔁 "  # Default icon for other media types
-
-# Function to get the route map from environment variable
-def get_route_map() -> dict:
-    load_dotenv()  # Load environment variables
-    raw = os.getenv("ROUTE_MAP", "")  # Fetch route map from .env
-    logger.info(f"RAW ROUTE_MAP: {raw}")
-    route_map = {}
-
-    for pair in raw.split(","):  # Iterate over each pair
-        if ":" in pair:
-            try:
-                source, target = map(str.strip, pair.split(":"))
-                route_map[int(source)] = int(target)  # Map source to target
-            except ValueError:
-                logger.warning(f"Invalid ROUTE_MAP pair ignored: {pair}")
-
-    logger.info(f"Loaded ROUTE_MAP: {route_map}")
-    return route_map
