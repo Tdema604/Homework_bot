@@ -73,7 +73,7 @@ def setup_bot_handlers(app: Application):
     ]
     for cmd, handler in command_handlers:
         app.add_handler(CommandHandler(cmd, handler))
-    app.add_handler(MessageHandler(filters.ALL, forward_message))
+app.add_handler(CommandHandler("help", help_command))   app.add_handler(MessageHandler(filters.ALL, forward_message))
 
 # ─── aiohttp Webhook Handler ────────────────────────────────
 async def webhook(request):
