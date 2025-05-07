@@ -76,7 +76,7 @@ async def on_startup(app: web.Application):
     logger.info(f"📦 ROUTES_MAP from get_routes_map: {get_routes_map()}")
     telegram_app.bot_data["ROUTES_MAP"] = get_routes_map()
     telegram_app.bot_data["ALLOWED_SOURCE_CHAT_IDS"] = ALLOWED_SOURCE_CHAT_IDS
-    telegram_app.bot_data["ADMIN_CHAT_IDS"] = ADMIN_CHAT_IDS
+    telegram_app.bot_data["ADMIN_CHAT_IDS"] = ADMIN_IDS
 
     setup_bot_handlers(telegram_app)
     await telegram_app.initialize()
@@ -86,8 +86,8 @@ async def on_startup(app: web.Application):
     await telegram_app.bot.set_webhook(url=full_webhook_url)
     logger.info(f"✅ Webhook registered with URL: {full_webhook_url}")
 
- for admin_id in ADMIN_IDS:
-    await notify_admin(telegram_app.bot, admin_id, full_webhook_url)
+    for admin_id in ADMIN_IDS:
+        await notify_admin(telegram_app.bot, admin_id, full_webhook_url)
 
 # ─── Admin Notification ─────────────────────────────────────
 # Load ADMIN_IDS from environment variable safely
