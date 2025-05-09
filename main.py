@@ -50,30 +50,37 @@ async def webhook(request):
         return web.Response(status=500)
 
 # ─── Admin Notification ─────────────────────────────────────
+# Define the Bhutan Timezone
+BT_TZ = pytz.timezone("Asia/Thimphu")
+
 async def notify_admins():
     if not bot_data["ADMIN_CHAT_IDS"]:
         logger.warning("No admin IDs to notify.")
         return
-
     bt_time = datetime.now(pytz.timezone("Asia/Thimphu"))
-    formatted_time = bt_time.strftime("%I:%M %p")  # Format as 12-hour time with AM/PM
+    timestamp = bt_time.strftime("%Y-%m-%d %H:%M:%S")
     route_count = len(bot_data["ROUTES_MAP"])
-    webhook_url = "https://homework-bot-wxi3.onrender.com/webhook"  # You should have the webhook URL stored or calculated earlier in your code
+    now = datetime.now(BT_TZ)
+    formatted_time = now.strftime("%I:%M %p")  # Format as 12-hour time with AM/PM
 
     message = (
-        f"🤖 <b>Bot restarted</b> ({BOT_VERSION})\n"
-        f"🕒 <b>Time:</b> {formatted_time} (BTT)\n"
-        f"🗺️ <b>Active Routes:</b> {route_count}\n"
-        f"🌐 <b>Webhook URL:</b> {webhook_url}"
+        f"🤖 Bot restarted (v1.3.2)\n"
+        f"🕒 Time: {formatted_time} (BTT)\n"
+        f"🗺️ Active Routes: {route_count}\n"
+        f"🌐 Webhook URL: {WEBHOOK_URL + WEBHOOK_PATH}"
     )
 
-    # Send the message to all admin chat IDs
+    # Ensure all the characters are properly encoded
+    try:
+        message = message.encode('utf-8', 'surrogatepass').decode('utf-8')
+    except UnicodeEncodeError as e:
+        logger.error(f"Unicode encoding error: {e}")
+
     for admin_id in bot_data["ADMIN_CHAT_IDS"]:
         try:
             await bot.send_message(chat_id=admin_id, text=message, parse_mode="HTML")
         except Exception as e:
             logger.error(f"❌ Failed to notify admin {admin_id}: {e}")
-
 
 # ─── aiohttp Lifecycle Hooks ────────────────────────────────
 async def on_startup(_):
