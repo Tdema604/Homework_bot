@@ -30,6 +30,7 @@ from utils import (
 )
 from PIL import Image
 from decorators import admin_only  # Ensure this exists
+from faster_whisper import WhisperModel
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,7 +55,6 @@ except sr.UnknownValueError:
     print("Sorry, could not understand the audio.")
 except sr.RequestError as e:
     print("Could not request results; check your network connection.")
-
 
 def setup_bot_handlers(app):
     # Admin + general commands
@@ -172,7 +172,6 @@ async def clear_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === Homework forwarder ===
 # Function to handle voice messages
-
 def convert_to_wav(input_file, output_file):
     """Convert any audio file to .wav format"""
     audio = AudioSegment.from_file(input_file)
@@ -203,6 +202,31 @@ def process_audio(update: Update, context: CallbackContext):
             print("Google Speech Recognition could not understand audio.")
         except sr.RequestError as e:
             print(f"Could not request results from Google Speech Recognition service; {e}")
+
+def transcribe_audio(audio_path: str):
+    # Convert to .wav if needed (Telegram audio is usually .ogg)
+    if audio_path.endswith(".ogg"):
+        sound = AudioSegment.from_file(audio_path)
+        audio_path_wav = audio_path.replace(".ogg", ".wav")
+        sound.export(audio_path_wav, format="wav")
+    else:
+        audio_path_wav = audio_path
+
+    # Load the model (you can specify model size like "tiny", "base", "small")
+    model = WhisperModel("base", compute_type="int8")  # "int8" runs faster on CPU
+
+    segments, info = model.transcribe(audio_path_wav, beam_size=5)
+
+    full_text = ""
+    for segment in segments:
+        full_text += segment.text.strip() + " "
+
+    return full_text.strip()
+
+if transcribed_text and any(kw in transcribed_text.lower() for kw in HOMEWORK_KEYWORDS):
+    forward_to_parent_group(update, context)
+else:
+    log_as_non_homework(sender)
 
 async def handle_audio(update: Update, context):
     """Handle incoming audio messages and convert to text"""
