@@ -197,6 +197,7 @@ def get_media_type_icon(message: Message) -> str:
         return "✏️"
     return "📎"
 
+<<<<<<< HEAD
 async def forward_message_to_parents(message, routes_map):
     # Get the source chat id (where the message is coming from)
     source_chat_id = message.chat.id
@@ -211,6 +212,8 @@ async def forward_message_to_parents(message, routes_map):
             await message.forward(chat_id=int(dest_id))  # Forward the message
         except Exception as e:
             print(f"Failed to forward message to {dest_id}: {e}")
+=======
+>>>>>>> 734847cc4b5a95eaaf459115dcd497008f025a25
 
 def escape_markdown(text: str) -> str:
     """

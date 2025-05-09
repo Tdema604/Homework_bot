@@ -236,6 +236,7 @@ async def forward_homework_if_valid(update: Update, context: ContextTypes.DEFAUL
     except Exception as e:
         print(f"[ERROR] Failed to process message: {e}")
         print("✅ forward_homework_if_valid() called")
+
 # === Admin Utilities ===
 async def ocr_debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.photo:
