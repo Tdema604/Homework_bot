@@ -93,7 +93,7 @@ async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
     await update.message.reply_text(
-        f"Chat ID: `{chat.id}`\nUser ID: `{user.id}`",
+        f"Chat IDS: `{chat.ids}`\nUser IDS: `{user.id}`",
         parse_mode=ParseMode.MARKDOWN
     )
 

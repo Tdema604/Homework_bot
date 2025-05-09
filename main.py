@@ -2,13 +2,11 @@ import os
 import logging
 from aiohttp import web
 from telegram import Update
-
 from telegram.ext import ApplicationBuilder, CommandHandler
-
 from telegram.ext import (Application, ApplicationBuilder, CommandHandler, MessageHandler, filters )
 from dotenv import load_dotenv 
 from handlers import (
-    start, chat_id, status, reload_config, help_command,
+    start, chat_ids, status, reload_config, help_command,
     list_routes, add_routes, remove_routes,
     list_senders, clear_senders,forward_message,
     weekly_summary, clear_homework_log
@@ -103,7 +101,7 @@ logger = logging.getLogger(__name__)
 def setup_bot_handlers(application):
     command_handlers = [
         ("start", start),
-        ("id", chat_id),
+        ("id", chat_ids),
         ("status", status),
         ("help", help_command),
         ("reload", reload_config),
