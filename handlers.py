@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from pydub import AudioSegment
 from telegram import Update
 from telegram.constants import ParseMode
+from telegram.ext import ContextTypes
 from telegram.ext import (CommandHandler, MessageHandler, filters, ContextTypes)
 from utils import (
     escape_markdown, forward_message_to_parents, get_target_group_id,
@@ -17,6 +18,7 @@ from utils import (
 )
 from decorators import admin_only
 import pytesseract
+
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -93,10 +95,16 @@ async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
     await update.message.reply_text(
-        f"Chat IDS: `{chat.ids}`\nUser IDS: `{user.id}`",
+        f"Chat ID: `{chat.id}`\nUser ID: `{user.id}`",
         parse_mode=ParseMode.MARKDOWN
     )
-
+    await update.message.reply_text(
+       f"👥 *Chat Info*\n"
+       f"ID: `{chat.id}`\n"
+       f"Title: `{chat.title or user.full_name}`\n"
+       f"User ID: `{user.id}`",
+       parse_mode=ParseMode.MARKDOWN
+)
 
 # === Sender Activity ===
 async def list_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
