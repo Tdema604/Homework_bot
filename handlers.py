@@ -178,25 +178,31 @@ def convert_to_wav(input_file, output_file):
     audio = AudioSegment.from_file(input_file)
     audio.export(output_file, format="wav")
 
-def process_audio_file(file_path):
-    """Use SpeechRecognition to transcribe the audio"""
-    recognizer = sr.Recognizer()
+def process_audio(update: Update, context: CallbackContext):
+    audio_file = update.message.voice.get_file()
+    audio_file_path = 'path_to_save_audio/voice_message.ogg'  # Path to store the downloaded audio file
+    
+    # Download the audio file from Telegram
+    audio_file.download(audio_file_path)
+        print(f"Audio file path: {audio_file_path}")
 
-    # Read the audio file
-    with sr.AudioFile(file_path) as source:
-        audio = recognizer.record(source)  # captures the audio data
+    # Convert .ogg to .wav using pydub if needed
+    from pydub import AudioSegment
+    sound = AudioSegment.from_ogg(audio_file_path)
+    wav_path = 'path_to_save_audio/voice_message.wav'
+    sound.export(wav_path, format="wav")
 
-    try:
-        # Use Google Web Speech API (internet required)
-        transcription = recognizer.recognize_google(audio)
-        print(f"Transcription: {transcription}")
-        return transcription
-    except sr.UnknownValueError:
-        print("Sorry, could not understand the audio.")
-        return None
-    except sr.RequestError as e:
-        print(f"Could not request results from Google Speech Recognition service; {e}")
-        return None
+    # Use the SpeechRecognition library to process the .wav file
+    with sr.AudioFile(wav_path) as source:
+        recognizer = sr.Recognizer()
+        audio = recognizer.record(source)
+        try:
+            text = recognizer.recognize_google(audio)
+            print(f"Recognized text: {text}")
+        except sr.UnknownValueError:
+            print("Google Speech Recognition could not understand audio.")
+        except sr.RequestError as e:
+            print(f"Could not request results from Google Speech Recognition service; {e}")
 
 async def handle_audio(update: Update, context):
     """Handle incoming audio messages and convert to text"""
