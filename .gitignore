@@ -11,3 +11,6 @@ venv/
 # 🔐 Never commit sensitive credentials
 routes.json
 
+# this will hold .oga/.wav temporarily
+temp/
+

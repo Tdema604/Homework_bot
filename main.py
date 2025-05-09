@@ -2,115 +2,104 @@ import os
 import logging
 from aiohttp import web
 from telegram import Update
-from telegram.ext import (
-    Application, CommandHandler, MessageHandler,
-    ContextTypes, filters
-)
+from telegram.ext import ApplicationBuilder, CommandHandler
 from dotenv import load_dotenv
-from handlers import (
-    start, chat_id, status, reload_config,
-    list_routes, add_routes, remove_routes,
-    list_senders, clear_senders,
-    weekly_homework, clear_homework_log,
-    forward_message
-)
-from utils import get_route_map
-from datetime import datetime
-import pytz
+from handlers import setup_bot_handlers  # Ensure this is properly imported
 
-# ─── Load Environment Variables ─────────────────────────────
+# Load environment variables from .env file
 load_dotenv()
 
+# Fetching environment variables
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Ensure this is the correct Render URL
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-PORT = int(os.getenv("PORT", 10000))
-WEBHOOK_PATH = "/webhook"
-ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "0"))
-ALLOWED_SOURCE_CHAT_IDS = [
-    int(cid.strip()) for cid in os.getenv("SOURCE_CHAT_IDS", "").split(",") if cid.strip()
-]
+if not WEBHOOK_URL or not BOT_TOKEN:
+    raise ValueError("Missing required environment variables: WEBHOOK_URL or BOT_TOKEN")
 
+PORT = int(os.getenv("PORT", 10000))  # Default to 10000 if PORT isn't set
+WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/webhook")
 BOT_VERSION = "v1.3.2"
 
-# ─── Logging Setup ──────────────────────────────────────────
+# Create application instance and bot
+app = ApplicationBuilder().token(BOT_TOKEN).build()
+bot = app.bot  # Access bot object directly
+
+# Initialize bot_data
+app.bot_data = {
+    "ROUTES_MAP": {},  # Initialize empty dictionary for routes map
+    "ALLOWED_SOURCE_CHAT_IDS": [],
+    "ADMIN_CHAT_IDS": [],
+}
+
+# Fetch and parse ROUTES_MAP from .env
+routes_env = os.getenv("ROUTES_MAP", "").strip()
+if routes_env:
+    try:
+        routes_map = {
+            str(source): [int(dest) for dest in destinations.split(",")]
+            for source, destinations in (item.split(":") for item in routes_env.split(","))
+        }
+        app.bot_data["ROUTES_MAP"] = routes_map
+        logging.info(f"✅ Loaded ROUTES_MAP: {routes_map}")
+    except ValueError as e:
+        logging.error(f"Error parsing ROUTES_MAP: {e}")
+else:
+    logging.warning("⚠️ ROUTES_MAP environment variable is missing or empty!")
+
+# Register other bot data as necessary
+app.bot_data["ALLOWED_SOURCE_CHAT_IDS"] = [
+    int(cid.strip()) for cid in os.getenv("SOURCE_CHAT_IDS", "").split(",") if cid.strip()
+]
+admin_ids_raw = os.getenv("ADMIN_IDS", "").strip()
+if admin_ids_raw:
+    app.bot_data["ADMIN_CHAT_IDS"] = {int(x.strip()) for x in admin_ids_raw.split(",") if x.strip()}
+
+# Logging Setup
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ─── Build Telegram Application ─────────────────────────────
-telegram_app = Application.builder().token(BOT_TOKEN).build()
-
 # ─── Handler Registration ──────────────────────────────────
-def setup_bot_handlers(app: Application):
+def setup_bot_handlers(application):
     command_handlers = [
         ("start", start),
         ("id", chat_id),
         ("status", status),
+        ("help", help_command),
         ("reload", reload_config),
         ("listroutes", list_routes),
         ("addroutes", add_routes),
         ("removeroutes", remove_routes),
         ("list_senders", list_senders),
         ("clear_senders", clear_senders),
-        ("weekly_homework", weekly_homework),
+        ("weekly_summary", weekly_summary),
         ("clear_homework_log", clear_homework_log),
     ]
     for cmd, handler in command_handlers:
-        app.add_handler(CommandHandler(cmd, handler))
-    app.add_handler(MessageHandler(filters.ALL, forward_message))
+        application.add_handler(CommandHandler(cmd, handler))
 
-# ─── aiohttp Webhook Handler ────────────────────────────────
+# ─── Webhook Setup ────────────────────────────────────────
+async def on_startup(app):
+    # Set the webhook URL (updated for new Application structure)
+    webhook_url = WEBHOOK_URL + WEBHOOK_PATH
+    await bot.set_webhook(url=webhook_url)  # Using bot object here
+    logger.info(f"✅ Webhook registered with URL: {webhook_url}")
+
+# aiohttp Webhook Handler
 async def webhook(request):
     try:
         json_data = await request.json()
-        update = Update.de_json(json_data, telegram_app.bot)
-        await telegram_app.process_update(update)
+        update = Update.de_json(json_data, bot)  # Using bot object here
+        await app.process_update(update)
         return web.Response(status=200)
     except Exception as e:
         logger.error(f"❌ Webhook processing error: {e}")
         return web.Response(status=500)
 
-# ─── aiohttp Startup Hook ───────────────────────────────────
-async def on_startup(app: web.Application):
-    logger.warning(f"✅ RUNTIME ROUTES_MAP raw string: {os.getenv('ROUTES_MAP')}")
-    logger.info(f"📦 ROUTES_MAP from get_route_map: {get_route_map()}")
-    telegram_app.bot_data["ROUTES_MAP"] = get_route_map()
-    telegram_app.bot_data["ALLOWED_SOURCE_CHAT_IDS"] = ALLOWED_SOURCE_CHAT_IDS
-    telegram_app.bot_data["ADMIN_CHAT_ID"] = ADMIN_CHAT_ID
-
-    setup_bot_handlers(telegram_app)
-    await telegram_app.initialize()
-    await telegram_app.start()
-
-    full_webhook_url = f"{WEBHOOK_URL}{WEBHOOK_PATH}"
-    await telegram_app.bot.set_webhook(url=full_webhook_url)
-    logger.info(f"✅ Webhook registered with URL: {full_webhook_url}")
-
-    await notify_admin(telegram_app.bot, ADMIN_CHAT_ID, full_webhook_url)
-
-# ─── Admin Notification ─────────────────────────────────────
-async def notify_admin(bot, admin_chat_id, webhook_url):
-    try:
-        routes = telegram_app.bot_data.get("ROUTES_MAP", {})
-        route_count = len(routes)
-        bt_time = datetime.now(pytz.timezone("Asia/Thimphu"))
-        timestamp = bt_time.strftime("%Y-%m-%d %H:%M:%S")
-
-        message = (
-            f"🤖 <b>Bot restarted</b> ({BOT_VERSION})\n"
-            f"🕒 <b>Time:</b> {timestamp} (BTT)\n"
-            f"🗺️ <b>Active Routes:</b> {route_count}\n"
-            f"🌐 <b>Webhook URL:</b> {webhook_url}"
-        )
-        await bot.send_message(admin_chat_id, message, parse_mode="HTML")
-        logger.info("✅ Admin notified.")
-    except Exception as e:
-        logger.error(f"❌ Failed to notify admin: {e}")
-
-# ─── Run aiohttp App ────────────────────────────────────────
+# aiohttp web application setup
 web_app = web.Application()
 web_app.on_startup.append(on_startup)
 web_app.router.add_post(WEBHOOK_PATH, webhook)
 
 if __name__ == "__main__":
     logger.info(f"🚀 Launching bot server on port {PORT}")
+    # Start the aiohttp server
     web.run_app(web_app, host="0.0.0.0", port=PORT)

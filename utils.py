@@ -1,42 +1,73 @@
 import os
 import logging
-from telegram import Message
 import re
-import os
 import json
+import pytesseract
+from PIL import Image
+from telegram import Message
+from faster_whisper import WhisperModel
 
 logger = logging.getLogger(__name__)
 
+# Initialize the model once at the top level (so it doesn't reload every time)
+model = WhisperModel("base", compute_type="int8")
+
+# Add this line to point to Tesseract on Windows
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+def get_target_group_id(routes_map: dict, source_chat_id: int) -> int | None:
+    """
+    This function is similar to `get_forward_target` and could serve as an alias or custom approach.
+    It checks if a source chat ID is in the routes map and returns the corresponding target ID.
+    """
+    return routes_map.get(str(source_chat_id))  # Ensure to use str if the keys are stored as strings
+
+
+def transcribe_audio_with_whisper(file_path: str) -> str:
+    try:
+        segments, _ = model.transcribe(file_path)
+        text = " ".join(segment.text for segment in segments if segment.text)
+        return text.strip()
+    except Exception as e:
+        logger.error(f"Whisper transcription failed: {e}")
+        return ""
+
+
+def get_forward_target(routes_map: dict, source_chat_id: int) -> int | None:
+    """
+    Returns the destination chat ID if the source chat ID is in routes_map.
+    Otherwise, returns None.
+    """
+    return routes_map.get(str(source_chat_id))  # Use str because keys are strings in .env
+
+
+def extract_text_from_image(image_path):
+    try:
+        img = Image.open(image_path)
+        text = pytesseract.image_to_string(img)
+        return text.strip()
+    except Exception as e:
+        return f"OCR error: {str(e)}"
+
 # === ROUTE MAP UTILITIES ===
-def load_routes_from_env():
+def is_render_env() -> bool:
     """
-    Load route map from the .env file.
-    Expected format: '123456:-11111,234567:-22222'
+    Detect if running on Render based on the presence of Render-specific environment variable.
     """
-    routes_str = os.getenv('ROUTES_MAP', '')
-    routes_map = {}
+    return os.getenv("RENDER", "").lower() == "true"
 
-    if routes_str:
-        try:
-            # Parsing the route map from string format to dictionary
-            for pair in routes_str.split(','):
-                if ':' in pair:
-                    source, target = map(int, pair.split(':'))
-                    routes_map[source] = target
-        except ValueError as e:
-            print(f"Error parsing ROUTES_MAP: {e}")
-    return routes_map
-
-def get_route_map() -> dict:
+def get_routes_map() -> dict:
     """
-    Load route mapping from the .env variable ROUTES_MAP.
+    Load route mappings from ROUTES_MAP environment variable.
     Format: "123:456,789:1011"
-    Returns a dictionary {123: 456, 789: 1011}
     """
-    # Log the raw content of ROUTES_MAP loaded from .env
-    raw = os.getenv("ROUTES_MAP", "")
-    logger.info(f"📦 Loading ROUTES_MAP from .env: {raw}")
-    
+    if is_render_env():
+        raw = os.getenv("ROUTES_MAP", "")
+        logger.info(f"📦 Loading ROUTES_MAP from Render env: {raw}")
+    else:
+        raw = os.getenv("ROUTES_MAP", "")
+        logger.info(f"📦 Loading ROUTES_MAP from .env: {raw}")
+
     routes_map = {}
     for pair in raw.split(","):
         if ":" in pair:
@@ -49,29 +80,68 @@ def get_route_map() -> dict:
     logger.info(f"✅ Parsed ROUTES_MAP: {routes_map}")
     return routes_map
 
-
-def save_routes_to_env(route_map: dict):
+def get_admin_ids() -> set[int]:
     """
-    Save route map back into memory (os.environ) in the same format.
+    Load admin user IDs from ADMIN_IDS environment variable.
+    Format: "123456,78910"
+    """
+    # Retrieve the environment variable
+    raw = os.getenv("ADMIN_IDS", "")
+    
+    if not raw:
+        # If the variable is missing or empty, log a warning
+        logger.warning("⚠️ ADMIN_IDS environment variable is missing or empty.")
+        return set()
+    
+    logger.warning(f"⚠️ ADMIN_IDS environment variable is loaded: {raw}")
+
+    try:
+        # Convert the comma-separated string of IDs into a set of integers
+        admin_ids = set(int(x.strip()) for x in raw.split(",") if x.strip().isdigit())
+    except ValueError:
+        # If parsing fails, log the error and return an empty set
+        logger.error("❌ Failed to parse ADMIN_IDS. Please check format.")
+        return set()
+
+    # Log the successfully loaded admin IDs
+    logger.warning(f"✅ Loaded ADMIN_IDS: {admin_ids}")
+    return admin_ids
+
+def load_routes_from_env() -> dict:
+    """
+    Load route mappings from the ROUTES_MAP environment variable.
+    Format: "123:456,789:1011"
+    """
+    raw = os.getenv("ROUTES_MAP", "")
+    logger.info(f"📦 Loading ROUTES_MAP: {raw}")
+
+    routes_map = {}
+    for pair in raw.split(","):
+        if ":" in pair:
+            try:
+                source, target = map(str.strip, pair.split(":"))
+                routes_map[int(source)] = int(target)
+            except ValueError:
+                logger.warning(f"⚠️ Invalid ROUTES_MAP pair ignored: {pair}")
+
+    logger.info(f"✅ Parsed ROUTES_MAP: {routes_map}")
+    return routes_map
+
+def save_routes_to_env(routes_map: dict):
+    """
+    Save routes map back into memory (os.environ) in the same format.
     This does NOT persist to disk. For development/testing only.
     """
-    os.environ["ROUTES_MAP"] = ",".join(f"{k}:{v}" for k, v in route_map.items())
+    os.environ["ROUTES_MAP"] = ",".join(f"{k}:{v}" for k, v in routes_map.items())
     logger.info("📝 Updated in-memory ROUTES_MAP (won’t persist to .env)")
-
-def escape_markdown(text: str) -> str:
-    """
-    Escape MarkdownV2 special characters for safe message formatting.
-    """
-    escape_chars = r'\_*[]()~`>#+-=|{}.!'
-    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
 
 
 # === HOMEWORK DETECTION ===
-def is_homework(message: Message) -> bool:
+def is_homework_like (message: str) -> bool:
     if not message.text:
         return False
 
-    text = message.text.lower()
+    text = text.lower()
 
     spam_phrases = [
         "click here", "free gift", "bonus", "subscribe",
@@ -105,19 +175,46 @@ def is_homework(message: Message) -> bool:
     pattern_hits = sum(1 for h in hints if h in text)
 
     return total_score + pattern_hits >= 3 or len(text) > 50
+    return any(word in text for word in keywords)
 
 
 # Define media type icons based on message content
+
 def get_media_type_icon(message: Message) -> str:
-    if message.text:
-        return "📝 "  # Text message
-    elif message.photo:
-        return "📸 "  # Photo message
+    if message.photo:
+        return "🖼️"
     elif message.document:
-        return "📄 "  # Document message
+        return "📄"
     elif message.video:
-        return "📹 "  # Video message
+        return "🎞️"
+    elif message.audio:
+        return "🎵"
     elif message.voice:
-        return "🎤 "  # Voice message
-    else:
-        return "🔁 "  # Default icon for other media types
+        return "🎤"
+    elif message.sticker:
+        return "🔖"
+    elif message.text:
+        return "✏️"
+    return "📎"
+
+async def forward_message_to_parents(message, routes_map):
+    # Get the source chat id (where the message is coming from)
+    source_chat_id = message.chat.id
+    # Get destination group ids (where the message will be forwarded)
+    dest_ids = routes_map.get(str(source_chat_id))
+    
+    if not dest_ids:
+        return  # If no routes exist for this chat id, don't do anything
+
+    for dest_id in dest_ids:
+        try:
+            await message.forward(chat_id=int(dest_id))  # Forward the message
+        except Exception as e:
+            print(f"Failed to forward message to {dest_id}: {e}")
+
+def escape_markdown(text: str) -> str:
+    """
+    Escape MarkdownV2 special characters for safe message formatting.
+    """
+    escape_chars = r'\_*[]()~`>#+-=|{}.!'
+    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
