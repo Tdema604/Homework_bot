@@ -183,7 +183,7 @@ def process_audio(update: Update, context: CallbackContext):
     
     # Download the audio file from Telegram
     audio_file.download(audio_file_path)
-        print(f"Audio file path: {audio_file_path}")
+    print(f"Audio file path: {audio_file_path}")
 
     # Convert .ogg to .wav using pydub if needed
     from pydub import AudioSegment
