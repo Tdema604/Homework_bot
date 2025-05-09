@@ -19,8 +19,29 @@ WEBHOOK_PATH = "/webhook"
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 BOT_VERSION = "v1.3.2"
 
-logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
+# Set up logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Your existing code to parse the ROUTES_MAP
+raw_routes = os.getenv("ROUTES_MAP", "")
+routes_map = {}
+
+# Initialize bot_data
+bot_data = {}  # Initialize the bot_data dictionary
+
+try:
+    for pair in raw_routes.split(","):
+        if ":" in pair:
+            src, dest = pair.split(":")
+            routes_map.setdefault(src.strip(), []).append(dest.strip())
+except Exception as e:
+    logger.error(f"Failed to parse ROUTES_MAP: {e}")
+
+bot_data["ROUTES_MAP"] = routes_map
+logger.info(f"Loaded routes: {routes_map}")  # Log the loaded routes
+
+logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 
 # ─── Telegram Application ───────────────────────────────────
 telegram_app = ApplicationBuilder().token(BOT_TOKEN).build()
