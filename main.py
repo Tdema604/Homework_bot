@@ -2,11 +2,9 @@ import os
 import logging
 from aiohttp import web
 from telegram import Update
-<<<<<<< HEAD
+
 from telegram.ext import ApplicationBuilder, CommandHandler
-from dotenv import load_dotenv
-from handlers import setup_bot_handlers  # Ensure this is properly imported
-=======
+
 from telegram.ext import (Application, ApplicationBuilder, CommandHandler, MessageHandler, filters )
 from dotenv import load_dotenv 
 from handlers import (
@@ -18,15 +16,14 @@ from handlers import (
 from utils import get_routes_map, get_admin_ids
 from datetime import datetime
 import pytz
->>>>>>> 734847cc4b5a95eaaf459115dcd497008f025a25
+
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Fetching environment variables
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Ensure this is the correct Render URL
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-<<<<<<< HEAD
+
 if not WEBHOOK_URL or not BOT_TOKEN:
     raise ValueError("Missing required environment variables: WEBHOOK_URL or BOT_TOKEN")
 
@@ -69,7 +66,6 @@ if admin_ids_raw:
     app.bot_data["ADMIN_CHAT_IDS"] = {int(x.strip()) for x in admin_ids_raw.split(",") if x.strip()}
 
 # Logging Setup
-=======
 if not BOT_TOKEN:
     raise RuntimeError("❌ BOT_TOKEN environment variable is missing!")
 
@@ -100,7 +96,6 @@ ALLOWED_SOURCE_CHAT_IDS = [
 ]
 
 # ─── Logging Setup ──────────────────────────────────────────
->>>>>>> 734847cc4b5a95eaaf459115dcd497008f025a25
 logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -121,13 +116,11 @@ def setup_bot_handlers(application):
         ("clear_homework_log", clear_homework_log),
     ]
     for cmd, handler in command_handlers:
-<<<<<<< HEAD
         application.add_handler(CommandHandler(cmd, handler))
-=======
+
         app.add_handler(CommandHandler(cmd, handler))
 app.add_handler(CommandHandler("help", help_command))
 app.add_handler(MessageHandler(filters.ALL, forward_message))
->>>>>>> 734847cc4b5a95eaaf459115dcd497008f025a25
 
 # ─── Webhook Setup ────────────────────────────────────────
 async def on_startup(app):
@@ -147,9 +140,6 @@ async def webhook(request):
         logger.error(f"❌ Webhook processing error: {e}")
         return web.Response(status=500)
 
-<<<<<<< HEAD
-# aiohttp web application setup
-=======
 # ─── Admin Notification ─────────────────────────────────────
 async def notify_admin(bot, webhook_url):
     try:
@@ -194,16 +184,13 @@ async def on_startup(app: web.Application):
     await notify_admin(telegram_app.bot, full_webhook_url)
 
 # ─── Run aiohttp App ────────────────────────────────────────
->>>>>>> 734847cc4b5a95eaaf459115dcd497008f025a25
 web_app = web.Application()
 web_app.on_startup.append(on_startup)
 web_app.router.add_post(WEBHOOK_PATH, webhook)
 
 if __name__ == "__main__":
     logger.info(f"🚀 Launching bot server on port {PORT}")
-<<<<<<< HEAD
     # Start the aiohttp server
     web.run_app(web_app, host="0.0.0.0", port=PORT)
-=======
     web.run_app(web_app, host="0.0.0.0", port=PORT)
->>>>>>> 734847cc4b5a95eaaf459115dcd497008f025a25
+
