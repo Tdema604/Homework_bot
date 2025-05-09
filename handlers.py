@@ -10,6 +10,7 @@ import uuid
 import tempfile
 import re
 import pytz
+import speech_recognition as sr
 from datetime import datetime, timedelta
 from pydub import AudioSegment
 from zoneinfo import ZoneInfo
@@ -30,10 +31,30 @@ from utils import (
 from PIL import Image
 from decorators import admin_only  # Ensure this exists
 
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BT_TZ = pytz.timezone("Asia/Thimphu")
 ROUTES = load_routes_from_env()
+
+# Initialize recognizer
+recognizer = sr.Recognizer()
+
+# Use an audio file (replace with your actual file path)
+audio_file_path = "path_to_your_audio_file.wav"
+
+# Load the audio file
+with sr.AudioFile(audio_file_path) as source:
+    audio = recognizer.record(source)
+
+# Recognize speech using Google Web Speech API (requires internet)
+try:
+    print("Transcription: " + recognizer.recognize_google(audio))
+except sr.UnknownValueError:
+    print("Sorry, could not understand the audio.")
+except sr.RequestError as e:
+    print("Could not request results; check your network connection.")
+
 
 def setup_bot_handlers(app):
     # Admin + general commands
@@ -51,6 +72,7 @@ def setup_bot_handlers(app):
     app.add_handler(CommandHandler("remove_routes", remove_routes))
     app.add_handler(CommandHandler("ocr_debug", ocr_debug))
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, forward_homework_if_valid))
+    app.add_handler(MessageHandler(filters.VOICE, handle_audio))
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     now = datetime.datetime.now(BT_TZ)
@@ -149,6 +171,52 @@ async def clear_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # === Homework forwarder ===
+# Function to handle voice messages
+
+def convert_to_wav(input_file, output_file):
+    """Convert any audio file to .wav format"""
+    audio = AudioSegment.from_file(input_file)
+    audio.export(output_file, format="wav")
+
+def process_audio_file(file_path):
+    """Use SpeechRecognition to transcribe the audio"""
+    recognizer = sr.Recognizer()
+
+    # Read the audio file
+    with sr.AudioFile(file_path) as source:
+        audio = recognizer.record(source)  # captures the audio data
+
+    try:
+        # Use Google Web Speech API (internet required)
+        transcription = recognizer.recognize_google(audio)
+        print(f"Transcription: {transcription}")
+        return transcription
+    except sr.UnknownValueError:
+        print("Sorry, could not understand the audio.")
+        return None
+    except sr.RequestError as e:
+        print(f"Could not request results from Google Speech Recognition service; {e}")
+        return None
+
+async def handle_audio(update: Update, context):
+    """Handle incoming audio messages and convert to text"""
+    if update.message.voice:
+        # Get the file ID and download the audio
+        file = await update.message.voice.get_file()
+        file.download('received_audio.ogg')
+
+        # Convert the .ogg file to .wav
+        convert_to_wav('received_audio.ogg', 'converted_audio.wav')
+
+        # Process the audio file to transcribe
+        transcription = process_audio_file('converted_audio.wav')
+
+        if transcription:
+            await update.message.reply_text(f"Transcribed homework: {transcription}")
+        else:
+            await update.message.reply_text("Sorry, I couldn't transcribe the audio.")
+
+
 def is_homework_text(text: str) -> bool:
     if not text:
         return False
