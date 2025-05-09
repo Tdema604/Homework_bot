@@ -64,18 +64,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     hour = now.hour
     weekday = now.strftime("%A")
 
-    if hour < 12:
-        time_emoji = "☀️"
-        greeting = "Good morning"
-    elif hour < 17:
-        time_emoji = "🌤️"
-        greeting = "Good afternoon"
-    elif hour < 21:
-        time_emoji = "🌙"
-        greeting = "Good evening"
+    if 5 <= hour < 12:
+        return "Good morning! ☀️"
+    elif 12 <= hour < 17:
+        return "Good afternoon! 🌤️"
+    elif 17 <= hour < 20:
+        return "Good evening! 🌙"
     else:
-        time_emoji = "🌌"
-        greeting = "Good night"
+        return "Good night! 🌌"
 
     weekday_emoji = {
         "Monday": "✨",
@@ -83,8 +79,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Saturday": "😎",
         "Sunday": "🧘‍♀️",
     }.get(weekday, "📚")
-
-    await update.message.reply_text(f"{time_emoji} {greeting}, teacher!\n\nI'm the Homework Forwarder Bot. {weekday_emoji}")
+    
+    user = update.effective_user
+    logger.info(f"📥 /start from {user.username or user.id}")
+    await update.message.reply_text(f"{time_emoji} {greeting}, Sir/Madam!\n\nI'm the Homework Forwarder Bot. {weekday_emoji}")
 
 
 # === Status ===
@@ -177,44 +175,50 @@ async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # === Forwarding Logic ===
-def is_homework_text(text: str) -> bool:
-    if not text:
-        return False
-    text = text.lower()
-    spam_patterns = [r"@.*bot", r"http[s]?://", r"join.*channel", r"vpn", r"shop", r"offer", r"sale", r"discount"]
-    if any(re.search(pat, text) for pat in spam_patterns):
-        return False
-    keywords = ["homework", "assignment", "math", "english", "due", "page", "write", "chapter", "science", "question"]
-    return any(word in text for word in keywords)
+def is_homework_text(text: str):
+    keywords = ["homework", "assignment", "worksheet", "submit",
+        "classwork", "question", "due", "test", "exam",
+        "page", "chapter", "topic", "notes", "activity"]
 
-# === Forwarding Homework ===
+    return any(keyword in text.lower() for keyword in keywords)
+
 async def forward_homework_if_valid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
     source_chat_id = update.effective_chat.id
     routes_map = context.bot_data.get("ROUTES_MAP", {})
     dest_ids = routes_map.get(str(source_chat_id))
+
     if not dest_ids:
+        logger.debug(f"No routes found for chat ID {source_chat_id}, skipping forwarding.")
         return
 
     extracted_text = ""
+    logger.debug(f"Processing message from chat ID {source_chat_id}")
 
     try:
+        # Text messages
         if message.text:
             extracted_text = message.text
+            logger.debug(f"Extracted text: {extracted_text}")
 
+        # Photo messages (OCR)
         elif message.photo:
             photo = message.photo[-1]
             with tempfile.NamedTemporaryFile(suffix=".jpg") as tf:
                 await photo.get_file().download_to_drive(tf.name)
                 extracted_text = pytesseract.image_to_string(tf.name)
+                logger.debug(f"Extracted text from image: {extracted_text}")
 
+        # Voice or Audio messages (Whisper transcription)
         elif message.voice or message.audio:
             media = message.voice or message.audio
             suffix = ".ogg" if message.voice else ".mp3"
             with tempfile.NamedTemporaryFile(suffix=suffix) as tf:
                 await media.get_file().download_to_drive(tf.name)
                 extracted_text = transcribe_audio_with_whisper(tf.name)
+                logger.debug(f"Extracted text from audio: {extracted_text}")
 
+        # Video messages (Extract audio and use Whisper for transcription)
         elif message.video:
             video_file = await message.video.get_file()
             with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as video_temp:
@@ -224,20 +228,29 @@ async def forward_homework_if_valid(update: Update, context: ContextTypes.DEFAUL
             subprocess.run(["ffmpeg", "-i", video_temp.name, "-q:a", "0", "-map", "a", audio_path, "-y"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             extracted_text = transcribe_audio_with_whisper(audio_path)
 
+            # Clean up temporary files
             os.remove(video_temp.name)
             os.remove(audio_path)
 
+        # Validate the extracted text
         if not is_homework_text(extracted_text):
+            logger.debug(f"Message does not contain valid homework text. Skipping forwarding.")
             return
 
+        logger.debug(f"Message identified as homework: {extracted_text}")
+
+        # Forward message to parent groups
         for dest_id in dest_ids:
             try:
                 await message.forward(chat_id=int(dest_id))
+                logger.info(f"Message forwarded to {dest_id}")
             except Exception as e:
                 logger.error(f"Failed to forward to {dest_id}: {e}")
 
     except Exception as e:
         logger.exception("Error in forward_homework_if_valid")
+
+
 
 async def clear_homework_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.bot_data["FORWARDED_LOGS"] = []  # Clear the list of forwarded homework logs
