@@ -1,14 +1,11 @@
 import os
-import pytz
 import logging
 from datetime import datetime
 from telegram import Update, MessageEntity
-from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ContextTypes
 
 from utils import (
     is_admin,
-    is_junk_message,
-    get_target_chat_id,
     extract_text_from_image,
     transcribe_audio_with_whisper,
     is_homework_text,
@@ -18,201 +15,141 @@ from utils import (
     track_sender_activity,
     list_sender_activity,
     clear_sender_data,
-    parse_routes_map,
     add_route_to_env,
-    delete_route_from_env,
+    delete_route_from_env
 )
 
-# ========================= Admin Commands =========================
-# Function to determine the greeting based on the time of day
-def get_greeting():
+# ======================== Core Functions ========================
+def get_dynamic_greeting():
+    """Replacement for the missing greeting function"""
     current_hour = datetime.now().hour
-
     if 5 <= current_hour < 12:
-        return "Good morning! 🌅 Have a productive day ahead! 💼"
+        return "Good morning! 🌅"
     elif 12 <= current_hour < 17:
-        return "Good afternoon! 🌞 Hope you're having a great day! 😎"
+        return "Good afternoon! ☀️"
     elif 17 <= current_hour < 21:
-        return "Good evening! 🌆 Relax and unwind! 🌙"
-    else:
-        return "Good night! 🌙 Sleep tight and dream big! 😴"
+        return "Good evening! 🌆"
+    return "Good night! 🌙"
 
-# Notify admins with time-based greeting
-async def notify_admins(application):
-    greeting_message = get_greeting()
-    for admin_id in os.getenv("ADMIN_CHAT_IDS").split(","):
+async def notify_admins(context: ContextTypes.DEFAULT_TYPE, message: str):
+    """Send notifications to all admins"""
+    for admin_id in context.bot_data.get("ADMIN_CHAT_IDS", []):
         try:
-            await application.bot.send_message(
-                admin_id,
-                f"✅ Bot is up and webhook is set. 🚀 {greeting_message}"
-            )
+            await context.bot.send_message(admin_id, message)
         except Exception as e:
-            logging.warning(f"Failed to notify admin {admin_id}: {e}")
+            logging.error(f"Failed to notify admin {admin_id}: {e}")
 
-
+# ======================== Command Handlers ========================
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_name = update.effective_user.first_name
     greeting = get_dynamic_greeting()
-    welcome_text = (
-        f"{greeting}, {user_name}! Welcome to the Homework Forwarder Bot 🎓.\n\n"
-        "Use /help to get more details about the available commands."
+    await update.message.reply_text(
+        f"{greeting}, {update.effective_user.first_name}!\n"
+        "I'm your Homework Forwarding Bot. Use /help for commands."
     )
-    await update.message.reply_text(welcome_text)
-
-async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update):
-        return
-    await update.message.reply_text("✅ Bot is up and running!")
-
-async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"🆔 Your chat ID is: `{update.effective_chat.id}`", parse_mode="Markdown")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_help = (
-        "**👩‍🏫 User Commands:**\n"
-        "/id - Show your chat ID\n"
-        "/feedback - Send feedback to the bot admin\n"
-    )
-    admin_help = (
-        "\n**🛠️ Admin Commands:**\n"
-        "/status - Check bot status\n"
-        "/help - Show this help menu\n"
-        "/list_routes - List all current group routes\n"
-        "/add_route <from_id> <to_id> - Add a new route\n"
-        "/delete_route <from_id> - Delete a route\n"
-        "/reload_config - Reload route config\n"
-        "/weekly_summary - Get summary of homework forwarded\n"
-        "/clear_homework_log - Clear forwarded homework log\n"
-        "/list_senders - Show sender activity log\n"
-        "/clear_senders - Clear sender activity log"
-    )
-    await update.message.reply_text(user_help + admin_help, parse_mode="Markdown")
+    help_text = """
+📚 <b>Available Commands:</b>
 
-async def list_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update):
-        return
-    routes = context.bot_data.get("ROUTES_MAP", {})
-    if not routes:
-        await update.message.reply_text("❌ No routes found.")
-        return
-    msg = "📚 Current Routes:\n" + "\n".join(f"{src} ➜ {dst}" for src, dst in routes.items())
-    await update.message.reply_text(msg)
+👤 <u>User Commands</u>
+/start - Start the bot
+/id - Show your chat ID
+/feedback - Send feedback
+
+🛠️ <u>Admin Commands</u>
+/list_routes - Show forwarding routes
+/add_route &lt;from_id&gt; &lt;to_id&gt; - Add new route
+/delete_route &lt;from_id&gt; - Remove route
+/weekly_summary - Get homework stats
+/list_senders - Show activity log
+"""
+    await update.message.reply_text(help_text, parse_mode="HTML")
 
 async def add_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
-        return
+        return await update.message.reply_text("❌ Admin only!")
+    
     try:
-        src = int(context.args[0])
-        dst = int(context.args[1])
-        routes = context.bot_data.get("ROUTES_MAP", {})
-        routes[src] = dst
-        context.bot_data["ROUTES_MAP"] = routes
+        src, dst = map(int, context.args[:2])
+        context.bot_data.setdefault("ROUTES_MAP", {})[src] = dst
         add_route_to_env(src, dst)
-        await update.message.reply_text(f"✅ Route added: {src} ➜ {dst}")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error adding route: {e}")
+        await update.message.reply_text(f"✅ Route added: {src} → {dst}")
+    except (ValueError, IndexError):
+        await update.message.reply_text("⚠️ Usage: /add_route <from_id> <to_id>")
 
 async def delete_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
-        return
+        return await update.message.reply_text("❌ Admin only!")
+    
     try:
         src = int(context.args[0])
-        routes = context.bot_data.get("ROUTES_MAP", {})
-        if src in routes:
-            del routes[src]
-            context.bot_data["ROUTES_MAP"] = routes
+        if src in context.bot_data.get("ROUTES_MAP", {}):
+            del context.bot_data["ROUTES_MAP"][src]
             delete_route_from_env(src)
-            await update.message.reply_text(f"🗑️ Route deleted: {src}")
+            await update.message.reply_text(f"🗑️ Deleted route: {src}")
         else:
-            await update.message.reply_text("⚠️ Route not found.")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error deleting route: {e}")
+            await update.message.reply_text("⚠️ Route not found")
+    except (ValueError, IndexError):
+        await update.message.reply_text("⚠️ Usage: /delete_route <from_id>")
 
-async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update):
-        return
-    try:
-        context.bot_data["ROUTES_MAP"] = parse_routes_map(os.getenv("ROUTES_MAP", ""))
-        await update.message.reply_text("✅ Configuration reloaded.")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error: {e}")
-
-async def get_weekly_summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update):
-        return
-    summary = get_weekly_summary(context)
-    await update.message.reply_text(summary or "📭 No homework forwarded this week.")
-
-async def clear_homework_log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update):
-        return
-    clear_homework_log(context)
-    await update.message.reply_text("🧹 Cleared homework log!")
-
-async def list_senders_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update):
-        return
-    await update.message.reply_text(list_sender_activity(context))
-
-async def clear_senders_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update):
-        return
-    clear_sender_data(context)
-    await update.message.reply_text("🧼 Cleared sender activity log.")
-
-# ========================= Feedback =========================
-
-async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("📝 Please reply to this message with your feedback.")
-
-# ========================= Message Handling =========================
-
+# ======================== Message Handling ========================
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.message
-    routes = context.bot_data.get("ROUTES_MAP", {})
+    """Main message processing pipeline"""
+    if not update.message or update.message.via_bot:
+        return
 
-    if message.text and any(entity.type == MessageEntity.BOT_COMMAND for entity in message.entities or []):
-        if "@" in message.text:
-            return
+    # Skip command processing
+    if update.message.entities and any(e.type == MessageEntity.BOT_COMMAND for e in update.message.entities):
+        return
 
     track_sender_activity(update, context)
+    routes = context.bot_data.get("ROUTES_MAP", {})
+    message = update.message
 
+    # Text message processing
     if message.text and is_homework_text(message.text):
         await forward_homework(context, message, routes)
         return
 
+    # Photo with caption/OCR
     if message.photo:
-        caption = message.caption or ""
-        if is_homework_text(caption):
+        if message.caption and is_homework_text(message.caption):
             await forward_homework(context, message, routes)
             return
-        photo_file = await message.photo[-1].get_file()
-        image_path = await photo_file.download_to_drive()
-        extracted_text = extract_text_from_image(image_path)
-        if is_homework_text(extracted_text):
-            await forward_homework(context, message, routes)
-            return
+        
+        try:
+            photo_file = await message.photo[-1].get_file()
+            image_path = await photo_file.download_to_drive()
+            extracted_text = extract_text_from_image(str(image_path))
+            if is_homework_text(extracted_text):
+                await forward_homework(context, message, routes)
+        except Exception as e:
+            logging.error(f"OCR failed: {e}")
 
-    if message.voice or message.audio or message.video_note:
-        transcript = await transcribe_audio_with_whisper(message, context)
-        if transcript and is_homework_text(transcript):
-            await forward_homework(context, message, routes)
-            return
+    # Audio processing
+    elif message.voice or message.audio:
+        try:
+            transcript = await transcribe_audio_with_whisper(message, context)
+            if transcript and is_homework_text(transcript):
+                await forward_homework(context, message, routes)
+        except Exception as e:
+            logging.error(f"Transcription failed: {e}")
 
-# ========================= Handler Registration =========================
-
+# ======================== Handler Registration ========================
 def register_handlers(application):
-    application.add_handler(CommandHandler("start", start_handler))
-    application.add_handler(CommandHandler("status", status_command))
-    application.add_handler(CommandHandler("id", id_command))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("list_routes", list_routes_command))
-    application.add_handler(CommandHandler("add_route", add_route_command))
-    application.add_handler(CommandHandler("delete_route", delete_route_command))
-    application.add_handler(CommandHandler("reload_config", reload_config))
-    application.add_handler(CommandHandler("weekly_summary", get_weekly_summary_command))
-    application.add_handler(CommandHandler("clear_homework_log", clear_homework_log_command))
-    application.add_handler(CommandHandler("list_senders", list_senders_command))
-    application.add_handler(CommandHandler("clear_senders", clear_senders_command))
-    application.add_handler(CommandHandler("feedback", feedback_command))
-    application.add_handler(MessageHandler(filters.ALL, handle_message))
+    """Consistent handler registration"""
+    handlers = [
+        CommandHandler("start", start_handler),
+        CommandHandler("help", help_command),
+        CommandHandler("id", id_command),
+        CommandHandler("list_routes", list_routes_command),
+        CommandHandler("add_route", add_routes_command),
+        CommandHandler("delete_route", delete_routes_command),
+        CommandHandler("weekly_summary", get_weekly_summary_command),
+        CommandHandler("list_senders", list_senders_command),
+        CommandHandler("feedback", feedback_command),
+        MessageHandler(filters.ALL & ~filters.COMMAND, handle_message)
+    ]
+    
+    for handler in handlers:
+        application.add_handler(handler)
