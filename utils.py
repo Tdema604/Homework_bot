@@ -13,7 +13,8 @@ from telegram import Message, Update
 from telegram.ext import ContextTypes
 from telegram.constants import ChatAction
 from telegram.helpers import escape_markdown
-
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 # --- Setup --- #
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
