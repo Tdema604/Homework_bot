@@ -112,7 +112,7 @@ async def add_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     except Exception as e:
         await update.message.reply_text(f"❌ Error adding route: {e}")
 
-async def delete_route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def delete_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
     try:
