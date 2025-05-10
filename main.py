@@ -23,7 +23,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/webhook")
-PORT = int(os.getenv("PORT", 8443))
+PORT = int(os.getenv("PORT", 1000))
 
 # Admin chat IDs
 admin_chat_ids = os.getenv("ADMIN_CHAT_IDS", "").strip()
