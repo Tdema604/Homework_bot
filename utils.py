@@ -1,133 +1,228 @@
 import os
-import logging
-import re
-import pytesseract
+import tempfile
+import datetime
+import json
+import speech_recognition as sr
+import subprocess
+from datetime import datetime, timedelta
+from dotenv import set_key
+from telegram import Message, Update
+from telegram.ext import ContextTypes
+from telegram.constants import ChatAction
+from telegram.helpers import escape_markdown
+from telegram.ext.filters import MessageFilter
+from pytesseract import image_to_string
 from PIL import Image
-from telegram import Message
-from faster_whisper import WhisperModel
+import speech_recognition as sr
+import subprocess
 
-logger = logging.getLogger(__name__)
 
-# Initialize Whisper model once
-model = WhisperModel("base", compute_type="int8")
+# --- Admin Filter ---
+class AdminFilter(MessageFilter):
+    def filter(self, message: Message) -> bool:
+        return str(message.from_user.id) in message.bot_data.get("ADMIN_CHAT_IDS", [])
 
-# Windows users: set path to Tesseract executable
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+admin_filter = AdminFilter()
 
-# === ROUTING UTILITIES ===
-def get_target_group_id(routes_map: dict, source_chat_id: int) -> int | None:
+# --- Admin Check Helper ---
+def is_admin(user_id, bot_data):
+    return str(user_id) in bot_data.get("ADMIN_CHAT_IDS", [])
+
+# --- Junk Filter ---
+def is_junk_message(message: Message):
+    if not message.text:
+        return False
+    lowered = message.text.lower()
+    return (
+        "free vpn" in lowered
+        or "/nayavpn" in lowered
+        or "http://" in lowered
+        or "https://" in lowered
+        or "@" in lowered
+    )
+
+def get_target_chat_id(source_chat_id: int, routes_map: dict) -> int | None:
+    """Returns the mapped target chat ID for the given source chat ID."""
     return routes_map.get(str(source_chat_id))
 
-def get_forward_target(routes_map: dict, source_chat_id: int) -> int | None:
-    return routes_map.get(str(source_chat_id))
-
-def is_render_env() -> bool:
-    return os.getenv("RENDER", "").lower() == "true"
-
-def get_routes_map() -> dict:
-    raw = os.getenv("ROUTES_MAP", "")
-    logger.info(f"\U0001F4E6 Loading ROUTES_MAP: {raw}")
-    routes_map = {}
-    for pair in raw.split(","):
-        if ":" in pair:
-            try:
-                source, target = map(str.strip, pair.split(":"))
-                routes_map[int(source)] = int(target)
-            except ValueError:
-                logger.warning(f"\u26A0\uFE0F Invalid ROUTES_MAP pair ignored: {pair}")
-    logger.info(f"\u2705 Parsed ROUTES_MAP: {routes_map}")
-    return routes_map
-
-def load_routes_from_env() -> dict:
-    return get_routes_map()
-
-def save_routes_to_env(routes_map: dict):
-    os.environ["ROUTES_MAP"] = ",".join(f"{k}:{v}" for k, v in routes_map.items())
-    logger.info("\ud83d\udcdd Updated in-memory ROUTES_MAP (won’t persist to .env)")
-
-def get_admin_ids() -> set[int]:
-    raw = os.getenv("ADMIN_IDS", "")
-    if not raw:
-        logger.warning("\u26A0\uFE0F ADMIN_IDS environment variable is missing or empty.")
-        return set()
-    logger.warning(f"\u26A0\uFE0F ADMIN_IDS environment variable is loaded: {raw}")
+# --- OCR for Images ---
+async def extract_text_from_image(file):
     try:
-        return set(int(x.strip()) for x in raw.split(",") if x.strip().isdigit())
-    except ValueError:
-        logger.error("\u274C Failed to parse ADMIN_IDS. Please check format.")
-        return set()
-
-# === AUDIO / IMAGE PROCESSING ===
-def transcribe_audio_with_whisper(file_path: str) -> str:
-    try:
-        segments, _ = model.transcribe(file_path)
-        return " ".join(segment.text for segment in segments if segment.text).strip()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
+            await file.download_to_drive(tmp_file.name)
+            img = Image.open(tmp_file.name)
+            text = image_to_string(img)
+        os.remove(tmp_file.name)
+        return text
     except Exception as e:
-        logger.error(f"Whisper transcription failed: {e}")
+        print(f"OCR Error: {e}")
         return ""
 
-def extract_text_from_image(image_path):
+# --- Whisper Transcription ---
+async def transcribe_audio_with_whisper(file):
     try:
-        img = Image.open(image_path)
-        return pytesseract.image_to_string(img).strip()
-    except Exception as e:
-        return f"OCR error: {str(e)}"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as tmp_file:
+            await file.download_to_drive(tmp_file.name)
+            ogg_path = tmp_file.name
 
-# === HOMEWORK DETECTION ===
-def is_homework_like(message: str) -> bool:
-    if not message:
-        return False
-    text = message.lower()
-    spam_phrases = [
-        "click here", "free gift", "bonus", "subscribe", "win", ".icu", ".xyz", "offer", "buy now", "cash prize"
-    ]
-    if any(phrase in text for phrase in spam_phrases):
-        return False
+        wav_path = ogg_path.replace(".ogg", ".wav")
+        subprocess.run(["ffmpeg", "-y", "-i", ogg_path, wav_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    strong_keywords = [
-        "homework", "hw", "assignment", "classwork", "task", "work", "worksheet", "project", "activity", "practice",
-        "revision", "test prep", "reading", "notes", "prep", "quiz", "exam", "deadline", "submission", "due",
-        "final", "presentation", "lab report", "writeup", "summary", "essay", "recap", "module", "draft", "slides",
-        "questions", "maths", "science", "english", "dzongkha", "to-do", "school stuff", "pdf", "page no", "page",
-        "write", "do this", "read", "solve", "finish", "study", "submit", "\U0001F4DD", "\U0001F4DA", "\u270D\uFE0F", "\u2705", "\U0001F4D6"
-    ]
-    weak_keywords = ["work", "read", "write", "draw", "solve", "fill", "copy", "prepare", "practice", "home task"]
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(wav_path) as source:
+            audio_data = recognizer.record(source)
 
-    strong_hits = sum(1 for word in strong_keywords if word in text)
-    weak_hits = sum(1 for word in weak_keywords if word in text)
-    pattern_hits = sum(1 for h in ["page", "submit", "due", "q.", "ex.", "exercise", "copy this"] if h in text)
-
-    return (strong_hits * 2 + weak_hits + pattern_hits) >= 3 or len(text) > 50
-
-# === FORWARDING UTILITIES ===
-def get_media_type_icon(message: Message) -> str:
-    if message.photo:
-        return "\U0001F5BC\uFE0F"
-    elif message.document:
-        return "\U0001F4C4"
-    elif message.video:
-        return "\U0001F39E\uFE0F"
-    elif message.audio:
-        return "\U0001F3B5"
-    elif message.voice:
-        return "\U0001F3A4"
-    elif message.sticker:
-        return "\U0001F516"
-    elif message.text:
-        return "\u270F\uFE0F"
-    return "\U0001F4CE"
-
-async def forward_message_to_parents(message, routes_map):
-    source_chat_id = message.chat.id
-    dest_ids = routes_map.get(str(source_chat_id))
-    if not dest_ids:
-        return
-    for dest_id in dest_ids:
         try:
-            await message.forward(chat_id=int(dest_id))
-        except Exception as e:
-            logger.error(f"Failed to forward message to {dest_id}: {e}")
+            text = recognizer.recognize_whisper(audio_data)
+        except Exception:
+            text = recognizer.recognize_google(audio_data)
 
-def escape_markdown(text: str) -> str:
-    escape_chars = r'\\_*[]()~`>#+-=|{}.!'
-    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
+        os.remove(ogg_path)
+        os.remove(wav_path)
+        return text
+    except Exception as e:
+        print(f"Whisper/Google STT Error: {e}")
+        return ""
+
+# --- Homework Keyword Check ---
+def is_homework_text(text: str):
+    keywords = ["homework", "classwork", "hw", "cw", "work", "assignment", "task", "project"]
+    return any(kw in text.lower() for kw in keywords)
+
+# --- Forwarding Logic ---
+async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE, transcribed_text=None):
+    message = update.message
+    from_chat_id = str(message.chat_id)
+    to_chat_id = get_target_chat_id(from_chat_id, context.bot_data)
+
+    if not to_chat_id:
+        return
+
+    user = message.from_user
+    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    context.bot_data.setdefault("SENDER_LOGS", {})[str(user.id)] = {
+        "name": user.full_name,
+        "last_message": message.text or message.caption or "[Media]",
+        "timestamp": now,
+    }
+
+    try:
+        # Forward as-is with annotation if transcription is used
+        if transcribed_text:
+            await context.bot.send_chat_action(chat_id=to_chat_id, action=ChatAction.TYPING)
+            await context.bot.send_message(
+                chat_id=to_chat_id,
+                text=f"🎙️ *Voice/Audio Transcription:*\n{escape_markdown(transcribed_text)}",
+                parse_mode="MarkdownV2",
+            )
+        else:
+            if message.text:
+                await context.bot.send_message(chat_id=to_chat_id, text=message.text)
+            elif message.photo:
+                await context.bot.send_photo(chat_id=to_chat_id, photo=message.photo[-1].file_id, caption=message.caption)
+            elif message.document:
+                await context.bot.send_document(chat_id=to_chat_id, document=message.document.file_id, caption=message.caption)
+            elif message.voice:
+                await context.bot.send_voice(chat_id=to_chat_id, voice=message.voice.file_id, caption=message.caption)
+            elif message.audio:
+                await context.bot.send_audio(chat_id=to_chat_id, audio=message.audio.file_id, caption=message.caption)
+            elif message.video:
+                await context.bot.send_video(chat_id=to_chat_id, video=message.video.file_id, caption=message.caption)
+    except Exception as e:
+        print(f"Error forwarding message: {e}")
+
+# ✅ Weekly summary generator
+def get_weekly_summary(context, group_id=None):
+    logs = context.bot_data.get("FORWARDED_LOGS", {})
+    now = datetime.now()
+    past_week = now - timedelta(days=7)
+    summaries = []
+
+    groups_to_check = [group_id] if group_id else logs.keys()
+
+    for gid in groups_to_check:
+        entries = logs.get(str(gid), [])
+        recent = [e for e in entries if datetime.fromisoformat(e["timestamp"]) >= past_week]
+        summaries.append(f"Group {gid}: {len(recent)} homework messages in the past 7 days.")
+
+    return "\n".join(summaries) if summaries else "No logs found for the past 7 days."
+
+# ✅ Clear homework log
+def clear_homework_log(context):
+    context.bot_data["FORWARDED_LOGS"] = {}
+
+def track_sender_activity(bot_data: dict, user, message_text: str):
+    """Track sender details and message metadata."""
+    if "SENDER_ACTIVITY" not in bot_data:
+        bot_data["SENDER_ACTIVITY"] = {}
+
+    sender_id = str(user.id)
+    bot_data["SENDER_ACTIVITY"][sender_id] = {
+        "name": user.full_name,
+        "last_message": message_text[:100],
+        "timestamp": datetime.now().isoformat(),
+    }
+
+# ✅ List recent sender activity
+def list_sender_activity(context):
+    log = context.bot_data.get("SENDER_ACTIVITY", {})
+    if not log:
+        return "No recent sender activity found."
+    lines = []
+    for user_id, entry in log.items():
+        name = entry["name"]
+        msg = entry["last_message"]
+        ts = entry["timestamp"]
+        lines.append(f"{name} (ID: {user_id})\n🕒 {ts}\n💬 {msg}\n")
+    return "\n".join(lines)
+
+# ✅ Clear sender data
+def clear_sender_data(context):
+    context.bot_data["SENDER_ACTIVITY"] = {}
+
+def parse_routes_map(env_str):
+    routes = {}
+    if env_str:
+        pairs = env_str.split(",")
+        for pair in pairs:
+            if ":" in pair:
+                student, parent = pair.split(":")
+                routes[int(student.strip())] = int(parent.strip())
+    return routes
+
+# ✅ Add route and update ENV
+def add_route_to_env(student_id: int, parent_id: int, env_path=".env"):
+    env_routes = os.getenv("ROUTES_MAP", "")
+    routes = parse_routes_map(env_routes)
+    routes[student_id] = parent_id
+    new_routes = ",".join([f"{k}:{v}" for k, v in routes.items()])
+    set_key(env_path, "ROUTES_MAP", new_routes)
+    return routes
+
+# ✅ Delete route and update ENV
+def delete_route_from_env(student_id: int, env_path=".env"):
+    env_routes = os.getenv("ROUTES_MAP", "")
+    routes = parse_routes_map(env_routes)
+    if student_id in routes:
+        del routes[student_id]
+        new_routes = ",".join([f"{k}:{v}" for k, v in routes.items()])
+        set_key(env_path, "ROUTES_MAP", new_routes)
+    return routes
+
+# ✅ Parse routes from ENV string
+def parse_routes_map(raw_map: str) -> dict:
+    """
+    Parses a comma-separated route string like '123:456,789:1011'
+    into a dictionary {'123': '456', '789': '1011'}
+    """
+    routes = {}
+    for route in raw_map.split(","):
+        if ":" in route:
+            src, dst = route.strip().split(":")
+            routes[src.strip()] = dst.strip()
+    return routes
+
+
+
+
+

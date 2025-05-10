@@ -1,343 +1,222 @@
-import logging
+import datetime
+import pytz
 import os
-import html
-import tempfile
-import subprocess
-import re
-import pytesseract
-import sys
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from pydub import AudioSegment
 from telegram import Update
-from telegram.constants import ParseMode
-from telegram.ext import ContextTypes
-from telegram.ext import (Application, CommandHandler, MessageHandler, filters, ContextTypes)
+from datetime import datetime
+from telegram import Update, MessageEntity
+from telegram.ext import CommandHandler, MessageHandler, filters, ContextTypes
 from utils import (
-    escape_markdown, forward_message_to_parents, get_target_group_id,
-    get_media_type_icon, is_homework_like, load_routes_from_env,
-    get_routes_map, transcribe_audio_with_whisper
+    is_admin,
+    is_junk_message,
+    get_target_chat_id,
+    extract_text_from_image,
+    transcribe_audio_with_whisper,
+    is_homework_text,
+    forward_homework,
+    get_weekly_summary,
+    clear_homework_log,
+    track_sender_activity,
+    list_sender_activity,
+    clear_sender_data,
+    parse_routes_map,
+    add_route_to_env,
+    delete_route_from_env,
 )
-from decorators import admin_only
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+# ========================= Admin Commands =========================
+def get_dynamic_greeting():
+    bhutan_tz = pytz.timezone("Asia/Thimphu")  # Bhutan timezone
+    current_time = datetime.now(bhutan_tz)
+    hour = current_time.hour
 
-BT_TZ = ZoneInfo("Asia/Thimphu")
-ROUTES = load_routes_from_env()
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-# === Bot Setup ===
-def setup_bot_handlers(app: Application) -> None:
-    # Admin & General Commands
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("status", status))
-    app.add_handler(CommandHandler("id", id_command))
-
-    # Admin Tools
-    app.add_handler(CommandHandler("get_routes_map", get_routes_map))
-    app.add_handler(CommandHandler("reload_config", reload_config))
-    app.add_handler(CommandHandler("weekly_summary", weekly_summary))
-    app.add_handler(CommandHandler("clear_homework_log", clear_homework_log))
-    app.add_handler(CommandHandler("list_senders", list_senders))
-    app.add_handler(CommandHandler("clear_senders", clear_senders))
-    app.add_handler(CommandHandler("list_routes", list_routes))
-    app.add_handler(CommandHandler("add_routes", add_routes))
-    app.add_handler(CommandHandler("remove_routes", remove_routes))
-    app.add_handler(CommandHandler("ocr_debug", ocr_debug))
-
-    # Catch-all non-command messages (text, media, etc.)
-    app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, forward_homework_if_valid))
-
-# Only export what's needed
-__all__ = ["setup_bot_handlers"]
-
-logging.info("✅ Handlers successfully registered.")
-
-# === Greetings ===
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    now = datetime.now(BT_TZ)
-    hour = now.hour
-
-    if hour < 12:
-        greeting = "Good morning! ☀️"
+    if 5 <= hour < 12:
+        return "Good morning"
     elif 12 <= hour < 17:
-        greeting = "Good afternoon! 🌤️"
-    elif 17 <= hour < 20:
-        greeting = "Good evening! 🌇"
+        return "Good afternoon"
+    elif 17 <= hour < 22:
+        return "Good evening"
     else:
-        greeting = "Good night! 🌙"
+        return "Good night"
 
-    message = (
-        f"👋 Hello, {user.full_name}!\n"
-        f"{greeting}\n\n"
-        f"🔔 Tip: Use /help to get a list of features!\n\n"
-        f"I'm ready to help! 🤩\n"
-        f"I'm your Homework Forwarder Bot. Drop homework, and I’ll pass it along!"
-    )
+async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_name = update.effective_user.first_name
+    greeting = get_dynamic_greeting()
+    welcome_text = f"{greeting}, {user_name}! Welcome to the Homework Forwarder Bot 🎓.\n\nUse /help to get more details about the available commands."
 
-    await update.message.reply_text(message)
+    await update.message.reply_text(welcome_text)
 
-# === Status ===
-async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    now = datetime.now(BT_TZ).strftime('%Y-%m-%d %H:%M:%S')
-    route_count = len(ROUTES)
-    await update.message.reply_text(
-        f"\u2705 Bot is online!\n\n\u23f0 Time: {now}\n\ud83e\udded Mapped groups: {route_count}"
-    )
-    await update.message.reply_text(f"Current Routes: {context.bot_data.get('ROUTES_MAP')}")
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    await update.message.reply_text("✅ Bot is up and running!")
 
-# === Help ===
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Use /status to check bot health or /id to see your current chat ID.", 
-    parse_mode=ParseMode.MARKDOWN)
-
-# === Chat ID ===
 async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat = update.effective_chat
-    user = update.effective_user
-    await update.message.reply_text(
-        f"Chat ID: `{chat.id}`\nUser ID: `{user.id}`",
-        parse_mode=ParseMode.MARKDOWN
-    )
-    await update.message.reply_text(
-       f"👥 *Chat Info*\n"
-       f"ID: `{chat.id}`\n"
-       f"Title: `{chat.title or user.full_name}`\n"
-       f"User ID: `{user.id}`",
-       parse_mode=ParseMode.MARKDOWN
+    await update.message.reply_text(f"🆔 Your chat ID is: `{update.effective_chat.id}`", parse_mode="Markdown")
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_help = (
+        "**👩‍🏫 User Commands:**\n"
+        "/id - Show your chat ID\n"
+        "/feedback - Send feedback to the bot admin\n"
     )
 
-__all__ = ["id_command"]
+    admin_help = (
+        "\n**🛠️ Admin Commands:**\n"
+        "/status - Check bot status\n"
+        "/help - Show this help menu\n"
+        "/list_routes - List all current group routes\n"
+        "/add_route <from_id> <to_id> - Add a new route\n"
+        "/delete_route <from_id> - Delete a route\n"
+        "/reload_config - Reload route config\n"
+        "/weekly_summary - Get summary of homework forwarded\n"
+        "/clear_homework_log - Clear forwarded homework log\n"
+        "/list_senders - Show sender activity log\n"
+        "/clear_senders - Clear sender activity log"
+    )
 
+    await update.message.reply_text(user_help + admin_help, parse_mode="Markdown")
 
-# === Sender Activity ===
-async def list_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    activity = context.bot_data.get("SENDER_ACTIVITY", {})
-    if not activity:
-        await update.message.reply_text("📭 No sender activity recorded.")
+async def list_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
         return
-
-    lines = [
-        f"<b>{html.escape(data['name'])}</b> ({user_id})\n🕒 {data['timestamp']}\n📩 {html.escape(data['last_message'])}"
-        for user_id, data in activity.items()
-    ]
-    await update.message.reply_text("🧾 <b>Recent Sender Activity</b>\n\n" + "\n\n".join(lines), parse_mode=ParseMode.HTML)
-async def clear_senders(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.bot_data["SENDER_ACTIVITY"] = {}
-    await update.message.reply_text("🧹 Sender activity log cleared!", parse_mode=ParseMode.HTML)
-
-# === Route Map ===
-async def list_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    routes_map = context.bot_data.get("ROUTES_MAP", {})
-    if not routes_map:
-        await update.message.reply_text("📭 No routes configured.")
+    routes = context.bot_data.get("ROUTES_MAP", {})
+    if not routes:
+        await update.message.reply_text("❌ No routes found.")
         return
+    msg = "📚 Current Routes:\n"
+    for src, dst in routes.items():
+        msg += f"{src} ➜ {dst}\n"
+    await update.message.reply_text(msg)
 
-    route_list = "\n".join([f"Source: {source} -> Destinations: {', '.join(map(str, destinations))}" 
-                           for source, destinations in routes_map.items()])
-    await update.message.reply_text("🧭 <b>Configured Routes</b>\n\n" + route_list, parse_mode=ParseMode.HTML)
 
-async def add_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 2:
-        await update.message.reply_text("⚠️ Usage: /add_routes <source_chat_id> <dest_chat_id_1> <dest_chat_id_2> ...")
+async def add_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
         return
-    
-    source_chat_id = context.args[0]
-    destination_chat_ids = context.args[1:]
-
-    routes_map = context.bot_data.get("ROUTES_MAP", {})
-    routes_map[source_chat_id] = destination_chat_ids
-
-    context.bot_data["ROUTES_MAP"] = routes_map
-    await update.message.reply_text(f"✅ Routes added: Source {source_chat_id} -> Destinations: {', '.join(destination_chat_ids)}")
-
-async def remove_routes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 1:
-        await update.message.reply_text("⚠️ Usage: /remove_routes <source_chat_id>")
-        return
-    
-    source_chat_id = context.args[0]
-
-    routes_map = context.bot_data.get("ROUTES_MAP", {})
-    if source_chat_id in routes_map:
-        del routes_map[source_chat_id]
-        context.bot_data["ROUTES_MAP"] = routes_map
-        await update.message.reply_text(f"✅ Route removed: Source {source_chat_id}")
-    else:
-        await update.message.reply_text(f"⚠️ No route found for Source {source_chat_id}")
-
-
-# === Forwarding Logic ===
-def is_homework_text(text: str):
-    keywords = ["homework", "assignment", "worksheet", "submit",
-        "classwork", "question", "due", "test", "exam",
-        "page", "chapter", "topic", "notes", "activity"]
-    return any(keyword in text.lower() for keyword in keywords)
-
-# === Forwarding Homework ===
-async def forward_homework_if_valid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.effective_message
-    source_chat_id = str(update.effective_chat.id)
-    routes_map = context.bot_data.get("ROUTES_MAP", {})
-    dest_ids = routes_map.get(source_chat_id)
-
-    if not dest_ids:
-        logger.debug(f"No destination mapped for chat_id: {source_chat_id}")
-        return
-
-    extracted_text = ""
-
     try:
-        # === TEXT ===
-        if message.text:
-            extracted_text = message.text
-
-        # === IMAGE OCR ===
-        elif message.photo:
-            photo = message.photo[-1]
-            with tempfile.NamedTemporaryFile(suffix=".jpg") as tf:
-                await photo.get_file().download_to_drive(tf.name)
-                extracted_text = pytesseract.image_to_string(tf.name)
-
-        # === AUDIO/VOICE ===
-        elif message.voice or message.audio:
-            media = message.voice or message.audio
-            suffix = ".ogg" if message.voice else ".mp3"
-            with tempfile.NamedTemporaryFile(suffix=suffix) as tf:
-                await media.get_file().download_to_drive(tf.name)
-                extracted_text = transcribe_audio_with_whisper(tf.name)
-
-        # === VIDEO ===
-        elif message.video:
-            video_file = await message.video.get_file()
-            with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as video_temp:
-                await video_file.download_to_drive(video_temp.name)
-
-            audio_path = video_temp.name + ".mp3"
-            subprocess.run([
-                "ffmpeg", "-i", video_temp.name, "-q:a", "0", "-map", "a",
-                audio_path, "-y"
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-            extracted_text = transcribe_audio_with_whisper(audio_path)
-            os.remove(video_temp.name)
-            os.remove(audio_path)
-
-        logger.info(f"Extracted text: {extracted_text}")
-
-        # === FILTER ===
-        if not is_homework_text(extracted_text):
-            logger.info("Message skipped: No homework keywords found.")
-            return
-        if is_junk_text(extracted_text):
-            logger.info("Message skipped: Junk/spam content detected.")
-            return
-
-        # === FORWARD ===
-        for dest_id in dest_ids:
-            try:
-                await message.forward(chat_id=int(dest_id))
-                logger.info(f"✅ Forwarded message from {source_chat_id} to {dest_id}")
-            except Exception as e:
-                logger.error(f"❌ Failed to forward to {dest_id}: {e}")
-
+        src = int(context.args[0])
+        dst = int(context.args[1])
+        routes = context.bot_data.get("ROUTES_MAP", {})
+        routes[src] = dst
+        context.bot_data["ROUTES_MAP"] = routes
+        await update.message.reply_text(f"✅ Route added: {src} ➜ {dst}")
+        add_route_to_env(src, dst)
     except Exception as e:
-        logger.exception("Unhandled error in forward_homework_if_valid")
-
-async def clear_homework_log(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.bot_data["FORWARDED_LOGS"] = []  # Clear the list of forwarded homework logs
-    await update.message.reply_text("🧹 Homework log has been cleared successfully!", parse_mode=ParseMode.HTML)
+        await update.message.reply_text(f"❌ Error adding route: {e}")
 
 
-# Optional: Reload logic to refresh routes from .env
-def get_routes_map():
-    routes_env = os.getenv("ROUTES_MAP", "").strip()
-    if not routes_env:
-        return {}
-
+async def delete_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
     try:
-        return {
-            str(source): [int(dest) for dest in destinations.split(",")]
-            for source, destinations in (item.split(":") for item in routes_env.split(","))
-        }
-    except ValueError as e:
-        logging.error(f"Failed to parse ROUTES_MAP: {e}")
-        return {}
+        src = int(context.args[0])
+        routes = context.bot_data.get("ROUTES_MAP", {})
+        if src in routes:
+            del routes[src]
+            context.bot_data["ROUTES_MAP"] = routes
+            delete_route_from_env(src)
+            await update.message.reply_text(f"🗑️ Route deleted: {src}")
+        else:
+            await update.message.reply_text("⚠️ Route not found.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error deleting route: {e}")
 
-# 🛠️ Handler for /reload_config
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if user_id not in context.bot_data.get("ADMIN_CHAT_IDS", []):
-        await update.message.reply_text("⛔ You’re not authorized to reload the config.")
+    if not is_admin(update):
+        return
+    try:
+        context.bot_data["ROUTES_MAP"] = parse_routes_map(os.getenv("ROUTES_MAP", ""))
+        await update.message.reply_text("✅ Configuration reloaded.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {e}")
+
+async def get_weekly_summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    summary = get_weekly_summary(context)
+    await update.message.reply_text(summary or "📭 No homework forwarded this week.")
+
+async def clear_homework_log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    clear_homework_log(context)
+    await update.message.reply_text("🧹 Cleared homework log!")
+
+
+async def list_senders_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    await update.message.reply_text(list_sender_activities(context))
+
+
+async def clear_senders_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    clear_sender_data(context)
+    await update.message.reply_text("🧼 Cleared sender activity log.")
+
+
+# ========================= Feedback =========================
+
+async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("📝 Please reply to this message with your feedback.")
+    return
+
+
+# ========================= Message Handlers =========================
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message
+    chat_id = message.chat_id
+    routes = context.bot_data.get("ROUTES_MAP", {})
+
+    # Junk filtering
+    if message.text and any(entity.type == MessageEntity.BOT_COMMAND for entity in message.entities or []):
+        if "@" in message.text:
+            return
+
+    # Track sender
+    track_sender_activity(update, context)
+
+    # Check and forward text messages
+    if message.text and is_homework_message(message.text):
+        await forward_homework(context, message, routes)
         return
 
-    routes_map = get_routes_map()
-    context.bot_data["ROUTES_MAP"] = routes_map
-    await update.message.reply_text(f"✅ Config reloaded. Total routes: {len(routes_map)}")
+    # If image with caption
+    if message.photo:
+        caption = message.caption or ""
+        if is_homework_message(caption):
+            await forward_homework(context, message, routes)
+            return
+        # OCR from image
+        photo_file = await message.photo[-1].get_file()
+        image_path = await photo_file.download_to_drive()
+        extracted_text = extract_text_from_image(image_path)
+        if is_homework_message(extracted_text):
+            await forward_homework(context, message, routes)
+            return
 
-# Get the start and end of the past week
-def get_week_range():
-    today = datetime.today()
-    start_of_week = today - timedelta(days=today.weekday())  # Get last Monday
-    end_of_week = start_of_week + timedelta(days=6)  # Get last Sunday
-    return start_of_week, end_of_week
+    # If voice or audio or video message
+    if message.voice or message.audio or message.video_note:
+        transcript = await transcribe_audio_message(message, context)
+        if transcript and is_homework_message(transcript):
+            await forward_homework(context, message, routes)
+            return
 
-# Generate a summary of forwarded homework messages for the last week
-async def weekly_summary(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Get the range of the last week
-    start_of_week, end_of_week = get_week_range()
+# ========================= Handler Registration =========================
+def register_handlers(application):
+    application.add_handler(CommandHandler("start", start_handler))
+    application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CommandHandler("id", id_command))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("list_routes", list_routes_command))
+    application.add_handler(CommandHandler("add_route", add_route_command))
+    application.add_handler(CommandHandler("delete_routes", delete_routes_command))
+    application.add_handler(CommandHandler("reload_config", reload_config, filters=filters.User(ADMIN_CHAT_IDS)))
+    application.add_handler(CommandHandler("get_weekly_summary", get_weekly_summary_command))
+    application.add_handler(CommandHandler("clear_homework_log", clear_homework_log_command))
+    application.add_handler(CommandHandler("list_senders", list_senders_command))
+    application.add_handler(CommandHandler("clear_senders", clear_senders_command))
+    application.add_handler(CommandHandler("feedback", feedback_command))
+    application.add_handler(MessageHandler(filters.ALL, handle_message))
 
-    # Access the logs or forwarded homework data (you may have to adjust this)
-    forwarded_logs = context.bot_data.get("FORWARDED_LOGS", {})
-
-    # Filter logs to get only those from the last week
-    weekly_logs = [
-        log for log in forwarded_logs.values()
-        if start_of_week <= datetime.fromtimestamp(log['timestamp']) <= end_of_week
-    ]
-
-    if not weekly_logs:
-        await update.message.reply_text("📭 No homework messages forwarded this week.", parse_mode=ParseMode.MARKDOWN)
-        return
-
-    # Aggregate data
-    num_messages = len(weekly_logs)
-    num_senders = len(set(log['sender_id'] for log in weekly_logs))
-    
-    # Optionally, you can format the results nicely
-    summary = f"📅 Weekly Homework Summary ({start_of_week.strftime('%Y-%m-%d')} to {end_of_week.strftime('%Y-%m-%d')})\n\n"
-    summary += f"🔢 Total Messages Forwarded: {num_messages}\n"
-    summary += f"👤 Unique Senders: {num_senders}\n"
-
-    # Additional metrics or top senders, if needed
-    top_senders = {}
-    for log in weekly_logs:
-        sender_id = log['sender_id']
-        top_senders[sender_id] = top_senders.get(sender_id, 0) + 1
-    
-    top_senders = sorted(top_senders.items(), key=lambda x: x[1], reverse=True)[:5]  # Get top 5 senders
-    if top_senders:
-        summary += "\n🏅 Top Senders:\n"
-        for sender_id, count in top_senders:
-            summary += f"   {html.escape(str(sender_id))}: {count} messages\n"
-
-    # Send the summary to the user
-    await update.message.reply_text(summary, parse_mode=ParseMode.HTML)
-
-async def ocr_debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message.photo:
-        await update.message.reply_text("⚠️ Please send an image to perform OCR.")
-        return
-
-    photo = update.message.photo[-1]
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
-        await photo.get_file().download_to_drive(tf.name)
-        extracted_text = pytesseract.image_to_string(tf.name)
-
-    await update.message.reply_text(f"📝 OCR Extracted Text:\n\n{extracted_text}", parse_mode=ParseMode.MARKDOWN)
