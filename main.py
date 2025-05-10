@@ -15,7 +15,9 @@ from handlers import (
     handle_message, reload_config
 )
 from utils import (
-    get_weekly_summary, clear_homework_log
+    get_weekly_summary,
+    clear_homework_log,
+    parse_routes_map
 )
 
 # Load environment
@@ -23,7 +25,6 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 WEBHOOK_PATH = os.getenv("WEBHOOK_PATH", "/webhook")
-PORT = int(os.getenv("PORT", 1000))
 
 # Admin chat IDs
 admin_chat_ids = os.getenv("ADMIN_CHAT_IDS", "").strip()
@@ -89,39 +90,32 @@ async def on_webhook(request):
     await application.process_update(update)
     return web.Response()
 
-# Main async function to set up and run the bot
+# Main entry point
 async def main():
-    # Set up the bot application
-    application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
-
-    # Set up the webhook handler
-    webhook_url = "https://your-app-name.onrender.com/webhook"  # Replace with your webhook URL
-    await application.bot.set_webhook(webhook_url)
+    # Set webhook
+    await application.bot.set_webhook(f"{WEBHOOK_URL}{WEBHOOK_PATH}")
+    logging.info(f"✅ Webhook set to {WEBHOOK_URL}{WEBHOOK_PATH}")
 
     # Notify admins
-    for admin_id in os.getenv("ADMIN_CHAT_IDS").split(","):
+    for admin_id in ADMIN_CHAT_IDS:
         try:
             await application.bot.send_message(admin_id, "✅ Bot is up and webhook is set.")
         except Exception as e:
-            logging.warning(f"Failed to notify admin {admin_id}: {e}")
+            logging.warning(f"⚠️ Failed to notify admin {admin_id}: {e}")
 
-    # Set up the aiohttp webhook server
+    # Set up aiohttp webhook server
     aio_app = web.Application()
-    aio_app.router.add_post('/webhook', on_webhook)
+    aio_app.router.add_post(WEBHOOK_PATH, on_webhook)
 
-    # Run the webhook server
     runner = web.AppRunner(aio_app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8080)  # Adjust if needed for Render
+    site = web.TCPSite(runner, "0.0.0.0", int(os.getenv("PORT", 10000)))  # PORT is automatically set by Render
     await site.start()
 
-    logging.info(f"🚀 Bot is running and listening for updates via aiohttp.")
-
-    # Keep the server running
+    logging.info("🚀 Bot is running and webhook server is live.")
     await asyncio.Event().wait()
 
-if __name__ == '__main__':
-    import asyncio
+if __name__ == "__main__":
     asyncio.run(main())
 
 
