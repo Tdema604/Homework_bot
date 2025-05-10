@@ -98,7 +98,7 @@ async def list_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     msg = "📚 Current Routes:\n" + "\n".join(f"{src} ➜ {dst}" for src, dst in routes.items())
     await update.message.reply_text(msg)
 
-async def add_route_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def add_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
     try:
