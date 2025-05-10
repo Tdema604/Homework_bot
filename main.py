@@ -3,6 +3,7 @@ import os
 import asyncio
 from aiohttp import web
 from dotenv import load_dotenv
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler, filters
 )
@@ -74,29 +75,53 @@ async def main():
     # Unified message handler
     app.add_handler(MessageHandler(filters.ALL, handle_message))
 
-    # Set webhook
-    await app.bot.set_webhook(f"{WEBHOOK_URL}{WEBHOOK_PATH}")
-    logging.info(f"✅ Webhook set to {WEBHOOK_URL}{WEBHOOK_PATH}")
+from telegram import Update
+from telegram.ext import ApplicationBuilder
+from aiohttp import web
+import asyncio
+import logging
+import os
+
+# Webhook handler for processing updates
+async def on_webhook(request):
+    data = await request.json()
+    update = Update.de_json(data, application.bot)
+    await application.process_update(update)
+    return web.Response()
+
+# Main async function to set up and run the bot
+async def main():
+    # Set up the bot application
+    application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
+
+    # Set up the webhook handler
+    webhook_url = "https://your-app-name.onrender.com/webhook"  # Replace with your webhook URL
+    await application.bot.set_webhook(webhook_url)
 
     # Notify admins
-    for admin_id in ADMIN_CHAT_IDS:
+    for admin_id in os.getenv("ADMIN_CHAT_IDS").split(","):
         try:
-            await app.bot.send_message(admin_id, "✅ Bot is up and webhook is set.")
+            await application.bot.send_message(admin_id, "✅ Bot is up and webhook is set.")
         except Exception as e:
             logging.warning(f"Failed to notify admin {admin_id}: {e}")
 
-    # Setup aiohttp webhook server
+    # Set up the aiohttp webhook server
     aio_app = web.Application()
-    aio_app.router.add_post(WEBHOOK_PATH, app.webhook_handler())
+    aio_app.router.add_post('/webhook', on_webhook)
 
+    # Run the webhook server
     runner = web.AppRunner(aio_app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    site = web.TCPSite(runner, '0.0.0.0', 8080)  # Adjust if needed for Render
     await site.start()
-    logging.info(f"🚀 Bot is running on port {PORT} via aiohttp")
 
-    # Keep alive
+    logging.info(f"🚀 Bot is running and listening for updates via aiohttp.")
+
+    # Keep the server running
     await asyncio.Event().wait()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    import asyncio
     asyncio.run(main())
+
+

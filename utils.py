@@ -1,21 +1,18 @@
 import os
 import tempfile
-import datetime
-import json
-import speech_recognition as sr
 import subprocess
+import json
 from datetime import datetime, timedelta
+
+import speech_recognition as sr
+from pytesseract import image_to_string
+from PIL import Image
 from dotenv import set_key
 from telegram import Message, Update
 from telegram.ext import ContextTypes
 from telegram.constants import ChatAction
 from telegram.helpers import escape_markdown
 from telegram.ext.filters import MessageFilter
-from pytesseract import image_to_string
-from PIL import Image
-import speech_recognition as sr
-import subprocess
-
 
 # --- Admin Filter ---
 class AdminFilter(MessageFilter):
@@ -24,7 +21,6 @@ class AdminFilter(MessageFilter):
 
 admin_filter = AdminFilter()
 
-# --- Admin Check Helper ---
 def is_admin(user_id, bot_data):
     return str(user_id) in bot_data.get("ADMIN_CHAT_IDS", [])
 
@@ -41,11 +37,11 @@ def is_junk_message(message: Message):
         or "@" in lowered
     )
 
+# --- Get Target Chat ---
 def get_target_chat_id(source_chat_id: int, routes_map: dict) -> int | None:
-    """Returns the mapped target chat ID for the given source chat ID."""
     return routes_map.get(str(source_chat_id))
 
-# --- OCR for Images ---
+# --- OCR: Extract text from image ---
 async def extract_text_from_image(file):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
@@ -58,7 +54,7 @@ async def extract_text_from_image(file):
         print(f"OCR Error: {e}")
         return ""
 
-# --- Whisper Transcription ---
+# --- Audio Transcription using Whisper and fallback to Google ---
 async def transcribe_audio_with_whisper(file):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as tmp_file:
@@ -84,12 +80,12 @@ async def transcribe_audio_with_whisper(file):
         print(f"Whisper/Google STT Error: {e}")
         return ""
 
-# --- Homework Keyword Check ---
+# --- Keyword Detection ---
 def is_homework_text(text: str):
     keywords = ["homework", "classwork", "hw", "cw", "work", "assignment", "task", "project"]
     return any(kw in text.lower() for kw in keywords)
 
-# --- Forwarding Logic ---
+# --- Forward Homework Message ---
 async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE, transcribed_text=None):
     message = update.message
     from_chat_id = str(message.chat_id)
@@ -99,7 +95,7 @@ async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         return
 
     user = message.from_user
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     context.bot_data.setdefault("SENDER_LOGS", {})[str(user.id)] = {
         "name": user.full_name,
         "last_message": message.text or message.caption or "[Media]",
@@ -107,7 +103,6 @@ async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     }
 
     try:
-        # Forward as-is with annotation if transcription is used
         if transcribed_text:
             await context.bot.send_chat_action(chat_id=to_chat_id, action=ChatAction.TYPING)
             await context.bot.send_message(
@@ -131,7 +126,7 @@ async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     except Exception as e:
         print(f"Error forwarding message: {e}")
 
-# ✅ Weekly summary generator
+# --- Weekly Summary ---
 def get_weekly_summary(context, group_id=None):
     logs = context.bot_data.get("FORWARDED_LOGS", {})
     now = datetime.now()
@@ -147,12 +142,11 @@ def get_weekly_summary(context, group_id=None):
 
     return "\n".join(summaries) if summaries else "No logs found for the past 7 days."
 
-# ✅ Clear homework log
 def clear_homework_log(context):
     context.bot_data["FORWARDED_LOGS"] = {}
 
+# --- Sender Activity Tracker ---
 def track_sender_activity(bot_data: dict, user, message_text: str):
-    """Track sender details and message metadata."""
     if "SENDER_ACTIVITY" not in bot_data:
         bot_data["SENDER_ACTIVITY"] = {}
 
@@ -163,7 +157,6 @@ def track_sender_activity(bot_data: dict, user, message_text: str):
         "timestamp": datetime.now().isoformat(),
     }
 
-# ✅ List recent sender activity
 def list_sender_activity(context):
     log = context.bot_data.get("SENDER_ACTIVITY", {})
     if not log:
@@ -176,45 +169,11 @@ def list_sender_activity(context):
         lines.append(f"{name} (ID: {user_id})\n🕒 {ts}\n💬 {msg}\n")
     return "\n".join(lines)
 
-# ✅ Clear sender data
 def clear_sender_data(context):
     context.bot_data["SENDER_ACTIVITY"] = {}
 
-def parse_routes_map(env_str):
-    routes = {}
-    if env_str:
-        pairs = env_str.split(",")
-        for pair in pairs:
-            if ":" in pair:
-                student, parent = pair.split(":")
-                routes[int(student.strip())] = int(parent.strip())
-    return routes
-
-# ✅ Add route and update ENV
-def add_route_to_env(student_id: int, parent_id: int, env_path=".env"):
-    env_routes = os.getenv("ROUTES_MAP", "")
-    routes = parse_routes_map(env_routes)
-    routes[student_id] = parent_id
-    new_routes = ",".join([f"{k}:{v}" for k, v in routes.items()])
-    set_key(env_path, "ROUTES_MAP", new_routes)
-    return routes
-
-# ✅ Delete route and update ENV
-def delete_route_from_env(student_id: int, env_path=".env"):
-    env_routes = os.getenv("ROUTES_MAP", "")
-    routes = parse_routes_map(env_routes)
-    if student_id in routes:
-        del routes[student_id]
-        new_routes = ",".join([f"{k}:{v}" for k, v in routes.items()])
-        set_key(env_path, "ROUTES_MAP", new_routes)
-    return routes
-
-# ✅ Parse routes from ENV string
+# --- Route Parsing and ENV Sync ---
 def parse_routes_map(raw_map: str) -> dict:
-    """
-    Parses a comma-separated route string like '123:456,789:1011'
-    into a dictionary {'123': '456', '789': '1011'}
-    """
     routes = {}
     for route in raw_map.split(","):
         if ":" in route:
@@ -222,7 +181,19 @@ def parse_routes_map(raw_map: str) -> dict:
             routes[src.strip()] = dst.strip()
     return routes
 
+def add_route_to_env(student_id: int, parent_id: int, env_path=".env"):
+    env_routes = os.getenv("ROUTES_MAP", "")
+    routes = parse_routes_map(env_routes)
+    routes[str(student_id)] = str(parent_id)
+    new_routes = ",".join([f"{k}:{v}" for k, v in routes.items()])
+    set_key(env_path, "ROUTES_MAP", new_routes)
+    return routes
 
-
-
-
+def delete_route_from_env(student_id: int, env_path=".env"):
+    env_routes = os.getenv("ROUTES_MAP", "")
+    routes = parse_routes_map(env_routes)
+    if str(student_id) in routes:
+        del routes[str(student_id)]
+        new_routes = ",".join([f"{k}:{v}" for k, v in routes.items()])
+        set_key(env_path, "ROUTES_MAP", new_routes)
+    return routes
