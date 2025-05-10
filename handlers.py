@@ -46,7 +46,9 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{greeting}, {update.effective_user.first_name}!\n"
         "I'm your Homework Forwarding Bot. Use /help for commands."
     )
-
+async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"Your chat ID: {update.effective_chat.id}")
+    
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = """
 📚 <b>Available Commands:</b>
