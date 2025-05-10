@@ -1,8 +1,9 @@
 import os
 import tempfile
 import subprocess
-import json
+import logging
 from datetime import datetime, timedelta
+from typing import Dict, Optional
 
 import speech_recognition as sr
 from pytesseract import image_to_string
@@ -12,188 +13,180 @@ from telegram import Message, Update
 from telegram.ext import ContextTypes
 from telegram.constants import ChatAction
 from telegram.helpers import escape_markdown
-from telegram.ext.filters import MessageFilter
 
-# --- Admin Filter ---
-class AdminFilter(MessageFilter):
-    def filter(self, message: Message) -> bool:
-        return str(message.from_user.id) in message.bot_data.get("ADMIN_CHAT_IDS", [])
+# --- Setup --- #
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-admin_filter = AdminFilter()
+# --- Admin Verification --- #
+def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Check if user is admin"""
+    return str(update.effective_user.id) in map(str, context.bot_data.get("ADMIN_CHAT_IDS", []))
 
-def is_admin(user_id, bot_data):
-    return str(user_id) in bot_data.get("ADMIN_CHAT_IDS", [])
-
-# --- Junk Filter ---
-def is_junk_message(message: Message):
+# --- Message Filtering --- #
+def is_junk_message(message: Message) -> bool:
+    """Detect spam messages"""
     if not message.text:
         return False
-    lowered = message.text.lower()
-    return (
-        "free vpn" in lowered
-        or "/nayavpn" in lowered
-        or "http://" in lowered
-        or "https://" in lowered
-        or "@" in lowered
-    )
+    text = message.text.lower()
+    spam_indicators = [
+        "http://", "https://", "@", "#",
+        "free vpn", "nayavpn", "join", "click"
+    ]
+    return any(indicator in text for indicator in spam_indicators)
 
-# --- Get Target Chat ---
-def get_target_chat_id(source_chat_id: int, routes_map: dict) -> int | None:
-    return routes_map.get(str(source_chat_id))
-
-# --- OCR: Extract text from image ---
-async def extract_text_from_image(file):
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
-            await file.download_to_drive(tmp_file.name)
-            img = Image.open(tmp_file.name)
-            text = image_to_string(img)
-        os.remove(tmp_file.name)
-        return text
-    except Exception as e:
-        print(f"OCR Error: {e}")
-        return ""
-
-# --- Audio Transcription using Whisper and fallback to Google ---
-async def transcribe_audio_with_whisper(file):
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as tmp_file:
-            await file.download_to_drive(tmp_file.name)
-            ogg_path = tmp_file.name
-
-        wav_path = ogg_path.replace(".ogg", ".wav")
-        subprocess.run(["ffmpeg", "-y", "-i", ogg_path, wav_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(wav_path) as source:
-            audio_data = recognizer.record(source)
-
-        try:
-            text = recognizer.recognize_whisper(audio_data)
-        except Exception:
-            text = recognizer.recognize_google(audio_data)
-
-        os.remove(ogg_path)
-        os.remove(wav_path)
-        return text
-    except Exception as e:
-        print(f"Whisper/Google STT Error: {e}")
-        return ""
-
-# --- Keyword Detection ---
-def is_homework_text(text: str):
-    keywords = ["homework", "classwork", "hw", "cw", "work", "assignment", "task", "project"]
+def is_homework_text(text: str) -> bool:
+    """Detect homework-related content"""
+    if not text:
+        return False
+    keywords = [
+        "hw", "homework", "assignment",
+        "due", "submit", "task", "project"
+    ]
     return any(kw in text.lower() for kw in keywords)
 
-# --- Forward Homework Message ---
-async def forward_homework(update: Update, context: ContextTypes.DEFAULT_TYPE, transcribed_text=None):
-    message = update.message
-    from_chat_id = str(message.chat_id)
-    to_chat_id = get_target_chat_id(from_chat_id, context.bot_data)
-
-    if not to_chat_id:
-        return
-
-    user = message.from_user
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    context.bot_data.setdefault("SENDER_LOGS", {})[str(user.id)] = {
-        "name": user.full_name,
-        "last_message": message.text or message.caption or "[Media]",
-        "timestamp": now,
-    }
-
+# --- Media Processing --- #
+async def extract_text_from_image(image_path: str) -> str:
+    """Extract text from images using OCR"""
     try:
-        if transcribed_text:
-            await context.bot.send_chat_action(chat_id=to_chat_id, action=ChatAction.TYPING)
-            await context.bot.send_message(
-                chat_id=to_chat_id,
-                text=f"🎙️ *Voice/Audio Transcription:*\n{escape_markdown(transcribed_text)}",
-                parse_mode="MarkdownV2",
-            )
-        else:
-            if message.text:
-                await context.bot.send_message(chat_id=to_chat_id, text=message.text)
-            elif message.photo:
-                await context.bot.send_photo(chat_id=to_chat_id, photo=message.photo[-1].file_id, caption=message.caption)
-            elif message.document:
-                await context.bot.send_document(chat_id=to_chat_id, document=message.document.file_id, caption=message.caption)
-            elif message.voice:
-                await context.bot.send_voice(chat_id=to_chat_id, voice=message.voice.file_id, caption=message.caption)
-            elif message.audio:
-                await context.bot.send_audio(chat_id=to_chat_id, audio=message.audio.file_id, caption=message.caption)
-            elif message.video:
-                await context.bot.send_video(chat_id=to_chat_id, video=message.video.file_id, caption=message.caption)
+        img = Image.open(image_path)
+        text = image_to_string(img)
+        return text.strip() if text else ""
     except Exception as e:
-        print(f"Error forwarding message: {e}")
+        logger.error(f"OCR failed: {e}")
+        return ""
 
-# --- Weekly Summary ---
-def get_weekly_summary(context, group_id=None):
-    logs = context.bot_data.get("FORWARDED_LOGS", {})
-    now = datetime.now()
-    past_week = now - timedelta(days=7)
-    summaries = []
+async def transcribe_audio(audio_path: str) -> str:
+    """Transcribe audio using Whisper (fallback to Google)"""
+    try:
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(audio_path) as source:
+            audio = recognizer.record(source)
+        
+        try:
+            return recognizer.recognize_whisper(audio)
+        except Exception:
+            return recognizer.recognize_google(audio)
+    except Exception as e:
+        logger.error(f"Transcription failed: {e}")
+        return ""
 
-    groups_to_check = [group_id] if group_id else logs.keys()
+# --- Core Forwarding Logic --- #
+async def forward_homework(
+    context: ContextTypes.DEFAULT_TYPE,
+    message: Message,
+    routes_map: Dict[int, int]
+) -> bool:
+    """
+    Forward messages to parent group with:
+    - Text/photo support
+    - OCR for images
+    - Audio transcription
+    - Error handling
+    """
+    try:
+        target_chat = routes_map.get(message.chat_id)
+        if not target_chat:
+            return False
 
-    for gid in groups_to_check:
-        entries = logs.get(str(gid), [])
-        recent = [e for e in entries if datetime.fromisoformat(e["timestamp"]) >= past_week]
-        summaries.append(f"Group {gid}: {len(recent)} homework messages in the past 7 days.")
+        # Notify typing action
+        await context.bot.send_chat_action(
+            chat_id=target_chat,
+            action=ChatAction.TYPING
+        )
 
-    return "\n".join(summaries) if summaries else "No logs found for the past 7 days."
+        # Handle different message types
+        if message.text:
+            await context.bot.send_message(
+                chat_id=target_chat,
+                text=f"📝 Homework Alert!\n\n{message.text}"
+            )
+            return True
 
-def clear_homework_log(context):
-    context.bot_data["FORWARDED_LOGS"] = {}
+        elif message.photo:
+            # Download and process image
+            with tempfile.NamedTemporaryFile(suffix=".jpg") as tmp:
+                photo = await message.photo[-1].get_file()
+                await photo.download_to_drive(tmp.name)
+                ocr_text = await extract_text_from_image(tmp.name)
 
-# --- Sender Activity Tracker ---
-def track_sender_activity(bot_data: dict, user, message_text: str):
-    if "SENDER_ACTIVITY" not in bot_data:
-        bot_data["SENDER_ACTIVITY"] = {}
+            if ocr_text:
+                await context.bot.send_message(
+                    chat_id=target_chat,
+                    text=f"📸 Image Text:\n\n{ocr_text}"
+                )
+            await context.bot.send_photo(
+                chat_id=target_chat,
+                photo=message.photo[-1].file_id,
+                caption=message.caption
+            )
+            return True
 
-    sender_id = str(user.id)
-    bot_data["SENDER_ACTIVITY"][sender_id] = {
+        elif message.voice or message.audio:
+            # Download and transcribe audio
+            with tempfile.NamedTemporaryFile(suffix=".ogg") as tmp:
+                audio = await (message.voice or message.audio).get_file()
+                await audio.download_to_drive(tmp.name)
+                transcript = await transcribe_audio(tmp.name)
+
+            if transcript:
+                await context.bot.send_message(
+                    chat_id=target_chat,
+                    text=f"🎙️ Audio Transcript:\n\n{transcript}"
+                )
+            await context.bot.send_voice(
+                chat_id=target_chat,
+                voice=message.voice.file_id if message.voice else None,
+                audio=message.audio.file_id if message.audio else None
+            )
+            return True
+
+        return False
+
+    except Exception as e:
+        logger.error(f"Forwarding failed: {e}")
+        return False
+
+# --- Route Management --- #
+def parse_routes_map(raw_routes: str) -> Dict[int, int]:
+    """Parse ROUTES_MAP from .env string"""
+    routes = {}
+    if not raw_routes:
+        return routes
+    
+    for route in raw_routes.split(","):
+        try:
+            src, dst = map(int, route.strip().split(":"))
+            routes[src] = dst
+        except (ValueError, AttributeError):
+            continue
+    return routes
+
+def sync_routes_to_env(routes: Dict[int, int], env_path=".env") -> None:
+    """Update .env file with current routes"""
+    route_str = ",".join(f"{k}:{v}" for k, v in routes.items())
+    set_key(env_path, "ROUTES_MAP", route_str)
+
+# --- Activity Tracking --- #
+def track_sender_activity(context: ContextTypes.DEFAULT_TYPE, update: Update) -> None:
+    """Log sender activity in bot_data"""
+    user = update.effective_user
+    context.bot_data.setdefault("SENDER_ACTIVITY", {})[str(user.id)] = {
         "name": user.full_name,
-        "last_message": message_text[:100],
-        "timestamp": datetime.now().isoformat(),
+        "last_message": update.message.text or "[media]",
+        "timestamp": datetime.now().isoformat()
     }
 
-def list_sender_activity(context):
-    log = context.bot_data.get("SENDER_ACTIVITY", {})
-    if not log:
-        return "No recent sender activity found."
-    lines = []
-    for user_id, entry in log.items():
-        name = entry["name"]
-        msg = entry["last_message"]
-        ts = entry["timestamp"]
-        lines.append(f"{name} (ID: {user_id})\n🕒 {ts}\n💬 {msg}\n")
-    return "\n".join(lines)
-
-def clear_sender_data(context):
-    context.bot_data["SENDER_ACTIVITY"] = {}
-
-# --- Route Parsing and ENV Sync ---
-def parse_routes_map(raw_map: str) -> dict:
-    routes = {}
-    for route in raw_map.split(","):
-        if ":" in route:
-            src, dst = route.strip().split(":")
-            routes[src.strip()] = dst.strip()
-    return routes
-
-def add_route_to_env(student_id: int, parent_id: int, env_path=".env"):
-    env_routes = os.getenv("ROUTES_MAP", "")
-    routes = parse_routes_map(env_routes)
-    routes[str(student_id)] = str(parent_id)
-    new_routes = ",".join([f"{k}:{v}" for k, v in routes.items()])
-    set_key(env_path, "ROUTES_MAP", new_routes)
-    return routes
-
-def delete_route_from_env(student_id: int, env_path=".env"):
-    env_routes = os.getenv("ROUTES_MAP", "")
-    routes = parse_routes_map(env_routes)
-    if str(student_id) in routes:
-        del routes[str(student_id)]
-        new_routes = ",".join([f"{k}:{v}" for k, v in routes.items()])
-        set_key(env_path, "ROUTES_MAP", new_routes)
-    return routes
+def get_activity_summary(context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Generate formatted activity log"""
+    activities = context.bot_data.get("SENDER_ACTIVITY", {})
+    if not activities:
+        return "No activity yet"
+    
+    return "\n".join(
+        f"{data['name']}: {data['last_message'][:50]}..."
+        for _, data in activities.items()
+)
