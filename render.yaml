@@ -1,29 +1,18 @@
 services:
   - type: web
-    name: your-bot-name
+    name: homework-forwarder
     env: python
-    runtime: python  # Explicit Python version (add version if needed, e.g. `python-3.11`)
-    
-    # Build commands (fixed)
     buildCommand: |
-      python -m pip install --upgrade pip setuptools wheel
+      apt-get update
+      apt-get install -y tesseract-ocr tesseract-ocr-dzo ffmpeg
       pip install -r requirements.txt
-      apt-get update && apt-get install -y tesseract-ocr ffmpeg  # Critical for OCR/audio
-
-    # Start command (choose ONE option below)
-    
-    # Option A: For Python direct execution (debugging)
     startCommand: python main.py
-    
-    # Option B: For production (recommended)
-    # startCommand: gunicorn --worker-class gevent --bind 0.0.0.0:$PORT main:application
-
     envVars:
-      - key: BOT_TOKEN  # ✅ Match your Python code
+      - key: BOT_TOKEN
         sync: false
-      - key: ADMIN_CHAT_IDS  # ✅ Plural as in your handlers.py
+      - key: ADMIN_CHAT_IDS
         sync: false
-      - key: ROUTES_MAP  # ✅ Required for forwarding logic
+      - key: ROUTES_MAP
         sync: false
       - key: WEBHOOK_URL
         sync: false
