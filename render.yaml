@@ -3,6 +3,8 @@ services:
     name: homework-forwarder
     env: python
     buildCommand: |
+      mkdir -p /usr/share/tesseract-ocr/4.00/tessdata  # <-- Creates directory
+      curl -L "https://github.com/tesseract-ocr/tessdata/raw/main/dzo.traineddata" -o "/usr/share/tesseract-ocr/4.00/tessdata/dzo.traineddata"
       apt-get update
       apt-get install -y tesseract-ocr tesseract-ocr-dzo ffmpeg
       pip install -r requirements.txt
