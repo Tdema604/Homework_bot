@@ -1,9 +1,11 @@
 import logging
 import os
 import asyncio
+import pytesseract
+from PIL import Image
 from aiohttp import web
-from dotenv import load_dotenv
 from telegram import Update
+from dotenv import load_dotenv
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler, filters
 )
@@ -51,6 +53,30 @@ application.bot_data.update({
     "SENDER_ACTIVITY": {}
 })
 
+async def main():
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    # Inject shared data
+    app.bot_data["ROUTES_MAP"] = ROUTES_MAP
+    app.bot_data["ADMIN_CHAT_IDS"] = ADMIN_CHAT_IDS
+    app.bot_data["FORWARDED_LOGS"] = []
+    app.bot_data["SENDER_ACTIVITY"] = {}
+
+    # Register command handlers
+    app.add_handler(CommandHandler("start", start_handler))
+    app.add_handler(CommandHandler("status", status_command))
+    app.add_handler(CommandHandler("id", id_command))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("list_routes", list_routes_command))
+    app.add_handler(CommandHandler("add_routes", add_routes_command))
+    app.add_handler(CommandHandler("delete_routes", delete_routes_command))
+    app.add_handler(CommandHandler("feedback", feedback_command))
+    app.add_handler(CommandHandler("reload_config", reload_config, filters=filters.User(ADMIN_CHAT_IDS)))
+    app.add_handler(CommandHandler("get_weekly_summary", get_weekly_summary_command, filters=filters.User(ADMIN_CHAT_IDS)))
+    app.add_handler(CommandHandler("clear_homework_log", clear_homework_log, filters=filters.User(ADMIN_CHAT_IDS)))
+    app.add_handler(CommandHandler("list_senders", list_senders_command, filters=filters.User(ADMIN_CHAT_IDS)))
+    app.add_handler(CommandHandler("clear_sender_data", clear_senders_command, filters=filters.User(ADMIN_CHAT_IDS)))
+
 # --- Handlers --- #
 # Admin-only commands (with user filter)
 admin_filter = filters.User(ADMIN_CHAT_IDS)
@@ -76,6 +102,12 @@ application.add_handlers([
 async def webhook_handler(request):
     json_data = await request.json()
     update = Update.de_json(json_data, application.bot)
+
+# Webhook handler for processing updates
+async def on_webhook(request):
+    data = await request.json()
+    update = Update.de_json(data, application.bot)
+
     await application.process_update(update)
     return web.Response()
 
@@ -106,6 +138,25 @@ async def main():
     server.router.add_post(WEBHOOK_PATH, webhook_handler)
     
     runner = web.AppRunner(server)
+
+    # Set webhook
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    await application.bot.set_webhook(f"{WEBHOOK_URL}{WEBHOOK_PATH}")
+    logging.info(f"✅ Webhook set to {WEBHOOK_URL}{WEBHOOK_PATH}")
+
+    # Notify admins
+    for admin_id in ADMIN_CHAT_IDS:
+        try:
+            await application.bot.send_message(admin_id, "✅ Bot is up and webhook is set.")
+        except Exception as e:
+            logging.warning(f"⚠️ Failed to notify admin {admin_id}: {e}")
+
+    # Set up aiohttp webhook server
+    aio_app = web.Application()
+    aio_app.router.add_post(WEBHOOK_PATH, on_webhook)
+
+    runner = web.AppRunner(aio_app)
+
     await runner.setup()
     await web.TCPSite(runner, "0.0.0.0", PORT).start()
     

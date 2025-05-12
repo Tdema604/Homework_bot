@@ -1,14 +1,18 @@
 import os
 import tempfile
+import logging
+import platform  # For OS detection
 import subprocess
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Optional
-
 import speech_recognition as sr
+import pytesseract
 from pytesseract import image_to_string
 from PIL import Image
 from dotenv import set_key
+from datetime import datetime, timedelta
+from typing import Dict, Optional
 from telegram import Message, Update
 from telegram.ext import ContextTypes
 from telegram.constants import ChatAction
@@ -26,6 +30,28 @@ logger = logging.getLogger(__name__)
 def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     """Check if user is admin"""
     return str(update.effective_user.id) in map(str, context.bot_data.get("ADMIN_CHAT_IDS", []))
+
+# --- Tesseract Configuration --- #
+if platform.system() == "Windows":
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    TESSDATA_PREFIX = r'C:\Program Files\Tesseract-OCR\tessdata'
+
+# --- Setup --- #
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# --- Admin Verification --- #
+def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Check if user is admin"""
+    return str(update.effective_user.id) in map(str, context.bot_data.get("ADMIN_CHAT_IDS", []))
+
+# --- get_target_chat_id --- #
+def get_target_chat_id(src_chat_id: int, routes_map: Dict[int, int]) -> Optional[int]:
+    """Get the target chat ID from the routes map using the source chat ID."""
+    return routes_map.get(src_chat_id)
 
 # --- Message Filtering --- #
 def is_junk_message(message: Message) -> bool:
@@ -55,6 +81,21 @@ async def extract_text_from_image(image_path: str) -> str:
     try:
         img = Image.open(image_path)
         text = image_to_string(img)
+def setup_dzongkha_ocr():
+    """Ensure Dzongkha language support exists (Linux only)"""
+    if platform.system() != "Windows":
+        dzo_path = f"{TESSDATA_PREFIX}/dzo.traineddata"
+        if not os.path.exists(dzo_path):
+            os.makedirs(TESSDATA_PREFIX, exist_ok=True)
+            os.system(f"curl -L 'https://github.com/tesseract-ocr/tessdata/raw/main/dzo.traineddata' -o '{dzo_path}'")
+
+async def extract_text_from_image(image_path: str) -> str:
+    """Extract text from images with Dzongkha support"""
+    try:
+        setup_dzongkha_ocr()
+        img = Image.open(image_path)
+        lang = 'dzo+eng' if platform.system() != "Windows" else 'eng'
+        text = image_to_string(img, lang=lang)
         return text.strip() if text else ""
     except Exception as e:
         logger.error(f"OCR failed: {e}")
@@ -152,6 +193,63 @@ async def forward_homework(
         return False
 
 # --- Route Management --- #
+def add_route_to_env(student_id: str, parent_id: str) -> str:
+    """Add a new route to ROUTES_MAP in the .env file (manual for now)."""
+    try:
+        routes_map = os.getenv("ROUTES_MAP", "")
+        route_dict = dict(pair.split(":") for pair in routes_map.split(",") if pair)
+
+        if student_id in route_dict:
+            return f"❌ Route already exists for student group {student_id}."
+
+        route_dict[student_id] = parent_id
+        updated_routes = ",".join(f"{k}:{v}" for k, v in route_dict.items())
+
+        # Simulate saving to .env (this should ideally be manual in production)
+        with open(".env", "r") as file:
+            lines = file.readlines()
+
+        with open(".env", "w") as file:
+            for line in lines:
+                if line.startswith("ROUTES_MAP="):
+                    file.write(f"ROUTES_MAP={updated_routes}\n")
+                else:
+                    file.write(line)
+
+        return f"✅ Added route: {student_id} ➡️ {parent_id}"
+
+    except Exception as e:
+        return f"⚠️ Failed to add route: {e}"
+
+def delete_route_from_env(student_id: str) -> str:
+    """Delete a route from ROUTES_MAP in the .env file."""
+    try:
+        routes_map = os.getenv("ROUTES_MAP", "")
+        route_dict = dict(pair.split(":") for pair in routes_map.split(",") if pair)
+
+        if student_id not in route_dict:
+            return f"❌ No route found for student group {student_id}."
+
+        del route_dict[student_id]
+        updated_routes = ",".join(f"{k}:{v}" for k, v in route_dict.items())
+
+        # Simulate saving to .env (ideally should be manual in production)
+        with open(".env", "r") as file:
+            lines = file.readlines()
+
+        with open(".env", "w") as file:
+            for line in lines:
+                if line.startswith("ROUTES_MAP="):
+                    file.write(f"ROUTES_MAP={updated_routes}\n")
+                else:
+                    file.write(line)
+
+        return f"🗑️ Deleted route for student group {student_id}."
+
+    except Exception as e:
+        return f"⚠️ Failed to delete route: {e}"
+
+
 def parse_routes_map(raw_routes: str) -> Dict[int, int]:
     """Parse ROUTES_MAP from .env string"""
     routes = {}
@@ -172,6 +270,29 @@ def sync_routes_to_env(routes: Dict[int, int], env_path=".env") -> None:
     set_key(env_path, "ROUTES_MAP", route_str)
 
 # --- Activity Tracking --- #
+def list_sender_activity(bot_data):
+    """List the sender activity based on the recorded sender data."""
+    sender_activity = bot_data.get("SENDER_ACTIVITY", {})
+    
+    # Sort the senders based on timestamp of their last message (descending)
+    sorted_senders = sorted(sender_activity.items(), key=lambda item: item[1]['timestamp'], reverse=True)
+    
+    # Format the activity into a readable string
+    activity_list = []
+    for sender_id, activity in sorted_senders:
+        name = activity.get("name", "Unknown Sender")
+        last_message = activity.get("last_message", "No messages")
+        timestamp = activity.get("timestamp", "No timestamp")
+        activity_list.append(f"Sender ID: {sender_id}, Name: {name}, Last Message: {last_message}, Timestamp: {timestamp}")
+    
+    return "\n".join(activity_list) if activity_list else "No sender activity recorded."
+
+def clear_sender_data(context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Clear the sender activity log."""
+    context.application.bot_data["SENDER_ACTIVITY"] = {}
+    return "Sender activity data has been cleared."
+
+
 def track_sender_activity(context: ContextTypes.DEFAULT_TYPE, update: Update) -> None:
     """Log sender activity in bot_data"""
     user = update.effective_user
@@ -180,6 +301,28 @@ def track_sender_activity(context: ContextTypes.DEFAULT_TYPE, update: Update) ->
         "last_message": update.message.text or "[media]",
         "timestamp": datetime.now().isoformat()
     }
+
+def get_weekly_summary(bot_data):
+    """Get the weekly homework summary for the past 7 days."""
+    # Get the current time and the time for 7 days ago
+    now = datetime.now()
+    start_of_week = now - timedelta(days=7)  # 7 days ago
+    
+    # Filter logs from the past 7 days
+    weekly_summary = []
+    for log in bot_data.get("FORWARDED_LOGS", []):
+        # Ensure that the log contains a timestamp and that it's within the past 7 days
+        if "timestamp" in log:
+            timestamp = datetime.fromtimestamp(log["timestamp"])
+            if timestamp >= start_of_week:
+                weekly_summary.append(log)
+    
+    return weekly_summary
+
+# Function to clear homework logs
+def clear_homework_log(bot_data):
+    """Clear all homework logs from the past week."""
+    bot_data["FORWARDED_LOGS"] = []
 
 def get_activity_summary(context: ContextTypes.DEFAULT_TYPE) -> str:
     """Generate formatted activity log"""

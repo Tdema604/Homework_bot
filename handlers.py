@@ -1,5 +1,12 @@
 import os
+import tempfile
 import logging
+import pytesseract
+from PIL import Image
+from telegram import Message
+from telegram.ext import ContextTypes
+from telegram.constants import ChatAction
+from typing import Dict
 from datetime import datetime
 from telegram import Update, MessageEntity
 from telegram.ext import ContextTypes
@@ -7,10 +14,10 @@ from telegram.ext import ContextTypes
 from utils import (
     is_admin,
     extract_text_from_image,
-    transcribe_audio_with_whisper,
+    transcribe_audio,
     is_homework_text,
     forward_homework,
-    get_weekly_summary,
+    get_activity_summary,
     clear_homework_log,
     track_sender_activity,
     list_sender_activity,
@@ -90,9 +97,60 @@ async def delete_routes_command(update: Update, context: ContextTypes.DEFAULT_TY
             delete_route_from_env(src)
             await update.message.reply_text(f"🗑️ Deleted route: {src}")
         else:
+
             await update.message.reply_text("⚠️ Route not found")
     except (ValueError, IndexError):
         await update.message.reply_text("⚠️ Usage: /delete_route <from_id>")
+
+            await update.message.reply_text("⚠️ Route not found.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error deleting route: {e}")
+
+async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    try:
+        context.bot_data["ROUTES_MAP"] = parse_routes_map(os.getenv("ROUTES_MAP", ""))
+        await update.message.reply_text("✅ Configuration reloaded.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {e}")
+
+async def get_weekly_summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    summary = get_weekly_summary(context)
+    await update.message.reply_text(summary or "📭 No homework forwarded this week.")
+
+async def clear_homework_log_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    clear_homework_log(context.application.bot_data)
+    await update.message.reply_text("🧹 Cleared homework log!")
+
+async def list_senders_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    
+    # Extract bot_data from the context
+    bot_data = context.application.bot_data
+    
+    # Pass the bot_data to the list_sender_activity function
+    activity_summary = list_sender_activity(bot_data)
+    
+    # Send the activity summary as a reply
+    await update.message.reply_text(activity_summary)
+
+
+async def clear_senders_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return
+    clear_sender_data(context)
+    await update.message.reply_text("🧼 Cleared sender activity log.")
+
+# ========================= Feedback =========================
+
+async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("📝 Please reply to this message with your feedback.")
 
 # ======================== Message Handling ========================
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -136,6 +194,108 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await forward_homework(context, message, routes)
         except Exception as e:
             logging.error(f"Transcription failed: {e}")
+
+    if not update.message or update.message.via_bot:
+        return
+
+    # Skip commands
+    if update.message.entities and any(e.type == MessageEntity.BOT_COMMAND for e in update.message.entities):
+        return
+
+    # Track activity
+    context.bot_data.setdefault("SENDER_ACTIVITY", {})[update.effective_user.id] = {
+        "name": update.effective_user.full_name,
+        "last_active": datetime.now().isoformat()
+    }
+
+    # Process message
+    routes = context.bot_data.get("ROUTES_MAP", {})
+    if update.message.chat_id not in routes:
+        return
+
+    # Forward if homework detected
+    if (update.message.text and is_homework_text(update.message.text)) or \
+       (update.message.caption and is_homework_text(update.message.caption)):
+        await forward_homework(context, update.message, routes)
+        return
+
+    # Process media
+    if update.message.photo:
+        try:
+            photo_file = await update.message.photo[-1].get_file()
+            with tempfile.NamedTemporaryFile(suffix='.jpg') as tmp:
+                await photo_file.download_to_drive(tmp.name)
+                if is_homework_text(await extract_text_from_image(tmp.name)):
+                    await forward_homework(context, update.message, routes)
+        except Exception as e:
+            logging.error(f"Photo processing failed: {e}")
+
+# Configure Tesseract for Dzongkha
+pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
+TESSDATA_PREFIX = '/usr/share/tesseract-ocr/4.00/tessdata'
+
+def setup_dzongkha_ocr():
+    """Ensure Dzongkha language support is available"""
+    dzo_path = f"{TESSDATA_PREFIX}/dzo.traineddata"
+    if not os.path.exists(dzo_path):
+        os.makedirs(TESSDATA_PREFIX, exist_ok=True)
+        os.system(f"wget https://github.com/tesseract-ocr/tessdata/raw/main/dzo.traineddata -O {dzo_path}")
+
+async def extract_text_from_image(image_path: str) -> str:
+    """Extract text from images with Dzongkha support"""
+    try:
+        setup_dzongkha_ocr()
+        img = Image.open(image_path)
+        text = pytesseract.image_to_string(img, lang='dzo+eng')
+        return text.strip()
+    except Exception as e:
+        logging.error(f"OCR failed: {e}")
+        return ""
+
+async def forward_homework(
+    context: ContextTypes.DEFAULT_TYPE,
+    message: Message,
+    routes_map: Dict[int, int]
+) -> bool:
+    """Enhanced forwarding logic"""
+    target_chat = routes_map.get(message.chat_id)
+    if not target_chat:
+        return False
+
+    try:
+        await context.bot.send_chat_action(target_chat, ChatAction.TYPING)
+        
+        if message.text:
+            await context.bot.send_message(
+                chat_id=target_chat,
+                text=f"📝 Homework from {message.from_user.full_name}:\n\n{message.text}"
+            )
+            return True
+
+        elif message.photo:
+            with tempfile.NamedTemporaryFile(suffix='.jpg') as tmp:
+                await message.photo[-1].get_file().download_to_drive(tmp.name)
+                ocr_text = await extract_text_from_image(tmp.name)
+                
+                if ocr_text:
+                    await context.bot.send_message(
+                        chat_id=target_chat,
+                        text=f"📸 Image content:\n\n{ocr_text}"
+                    )
+                
+                await context.bot.send_photo(
+                    chat_id=target_chat,
+                    photo=message.photo[-1].file_id,
+                    caption=f"From {message.from_user.full_name}" + (
+                        f"\n\n{message.caption}" if message.caption else ""
+                    )
+                )
+            return True
+
+    except Exception as e:
+        logging.error(f"Forwarding error: {e}")
+    
+    return False
 
 # ======================== Handler Registration ========================
 def register_handlers(application):
