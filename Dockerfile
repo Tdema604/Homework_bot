@@ -1,20 +1,23 @@
-# Use a prebuilt Python image with common dependencies (like ffmpeg, etc.)
-FROM python:3.9-slim-buster
+# Use a pre-built image with ffmpeg already included
+FROM jrottenberg/ffmpeg:4.3-ubuntu
 
-# Set environment variables for non-interactive installs
+# Install Python and pip
+RUN apt-get update && apt-get install -y python3 python3-pip
+
+# Set environment variables
 ENV PYTHONUNBUFFERED 1
 
-# Set the working directory in the container
+# Set the working directory
 WORKDIR /app
 
-# Copy the requirements.txt first (so Docker caches this layer)
+# Copy the requirements.txt first
 COPY requirements.txt /app/
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Copy the rest of your application code
+# Copy the rest of the code into the container
 COPY . /app/
 
-# Set the command to run the bot (main.py)
-CMD ["python", "main.py"]
+# Set the command to run the bot
+CMD ["python3", "main.py"]
