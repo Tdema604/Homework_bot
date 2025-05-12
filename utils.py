@@ -1,331 +1,124 @@
 import os
-import tempfile
 import logging
-import platform  # For OS detection
-import subprocess
-from datetime import datetime, timedelta
-from typing import Dict, Optional
-import speech_recognition as sr
-import pytesseract
-from pytesseract import image_to_string
+import tempfile
+from typing import Optional
 from PIL import Image
-from dotenv import set_key
-from telegram import Message, Update
+import pytesseract
+from pydub import AudioSegment
+import moviepy.editor as mp
+
+from telegram import Message, InputFile
 from telegram.ext import ContextTypes
-from telegram.constants import ChatAction
-from telegram.helpers import escape_markdown
 
-# --- Tesseract Configuration --- #
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-
-# --- Setup Logging --- #
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
 logger = logging.getLogger(__name__)
+TESSDATA_PREFIX = os.getenv("TESSDATA_PREFIX", "./tessdata")
+faster_whisper_model = None  # lazy-loaded model
 
-
-def get_dynamic_greeting():
-    """Returns a greeting based on current hour"""
-    current_hour = datetime.now().hour
-    if 5 <= current_hour < 12:
-        return "Good morning! 🌅"
-    elif 12 <= current_hour < 17:
-        return "Good afternoon! ☀️"
-    elif 17 <= current_hour < 21:
-        return "Good evening! 🌆"
-    return "Good night! 🌙"
-
-# --- Admin Verification --- #
-def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Check if user is admin"""
-    return str(update.effective_user.id) in map(str, context.bot_data.get("ADMIN_CHAT_IDS", []))
-
-# --- get_target_chat_id --- #
-def get_target_chat_id(src_chat_id: int, routes_map: Dict[int, int]) -> Optional[int]:
-    """Get the target chat ID from the routes map using the source chat ID."""
-    return routes_map.get(src_chat_id)
-
-# --- Message Filtering --- #
-def is_junk_message(message: Message) -> bool:
-    """Detect spam messages"""
-    if not message.text:
-        return False
-    text = message.text.lower()
-    spam_indicators = [
-        "http://", "https://", "@", "#",
-        "free vpn", "nayavpn", "join", "click"
-    ]
-    return any(indicator in text for indicator in spam_indicators)
-
-def is_homework_text(text: str) -> bool:
-    """Detect homework-related content"""
-    if not text:
-        return False
-    keywords = [
-        "hw", "homework", "assignment",
-        "due", "submit", "task", "project"
-    ]
-    return any(kw in text.lower() for kw in keywords)
-
-# --- Media Processing --- #
-
-def setup_dzongkha_ocr():
-    """Ensure Dzongkha language support is available"""
+# --- OCR ---
+def extract_text_from_image(file_path: str) -> str:
+    """Run OCR on image file using pytesseract (supports Dzongkha if available)."""
     try:
-        dzo_path = f"{TESSDATA_PREFIX}/dzo.traineddata"
-        if not os.path.exists(dzo_path):
-            os.makedirs(TESSDATA_PREFIX, exist_ok=True)
-            os.system(f"wget https://github.com/tesseract-ocr/tessdata/raw/main/dzo.traineddata -O {dzo_path}")
-    except Exception as e:
-        logging.error(f"Failed to set up Dzongkha OCR: {e}")
-
-async def extract_text_from_image(image_path: str) -> str:
-    """Extract text from images using OCR"""
-    try:
-        img = Image.open(image_path)
-        lang = 'dzo+eng' if platform.system() != "Windows" else 'eng'
-        text = image_to_string(img, lang=lang)
-        return text.strip() if text else ""
+        image = Image.open(file_path)
+        return pytesseract.image_to_string(image, lang="dzo+eng").strip()
     except Exception as e:
         logger.error(f"OCR failed: {e}")
         return ""
 
-async def transcribe_audio(audio_path: str) -> str:
-    """Transcribe audio using Whisper (fallback to Google)"""
+async def setup_dzongkha_ocr():
+    """Ensure Dzongkha language support is available (asynchronously)."""
     try:
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(audio_path) as source:
-            audio = recognizer.record(source)
-        
-        try:
-            return recognizer.recognize_whisper(audio)
-        except Exception:
-            return recognizer.recognize_google(audio)
+        dzo_path = os.path.join(TESSDATA_PREFIX, "dzo.traineddata")
+        if not os.path.exists(dzo_path):
+            os.makedirs(TESSDATA_PREFIX, exist_ok=True)
+            import aiohttp
+            url = "https://github.com/tesseract-ocr/tessdata/raw/main/dzo.traineddata"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        with open(dzo_path, "wb") as f:
+                            f.write(await resp.read())
     except Exception as e:
-        logger.error(f"Transcription failed: {e}")
+        logger.error(f"Failed to set up Dzongkha OCR: {e}")
+
+# --- Audio Transcription ---
+def lazy_load_faster_whisper():
+    global faster_whisper_model
+    if faster_whisper_model is None:
+        from faster_whisper import WhisperModel
+        faster_whisper_model = WhisperModel("tiny", compute_type="int8")
+    return faster_whisper_model
+
+def transcribe_audio(file_path: str) -> str:
+    """Convert audio file to text using faster-whisper (tiny model)."""
+    try:
+        model = lazy_load_faster_whisper()
+        segments, _ = model.transcribe(file_path)
+        return " ".join([seg.text.strip() for seg in segments if seg.text]).strip()
+    except Exception as e:
+        logger.error(f"Audio transcription failed: {e}")
         return ""
 
-# --- Core Forwarding Logic --- #
-async def forward_homework(
+def convert_voice_to_wav(voice_bytes: bytes) -> str:
+    """Convert Telegram voice message bytes (OGG/MP3) to WAV for transcription."""
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as out_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as tmp_ogg:
+                tmp_ogg.write(voice_bytes)
+                tmp_ogg.flush()
+                audio = AudioSegment.from_file(tmp_ogg.name)
+                audio.export(out_file.name, format="wav")
+            return out_file.name
+    except Exception as e:
+        logger.error(f"Failed to convert voice to WAV: {e}")
+        return ""
+
+def convert_video_to_wav(video_path: str) -> str:
+    """Extract audio from video as WAV."""
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as wav_file:
+            video = mp.VideoFileClip(video_path)
+            video.audio.write_audiofile(wav_file.name, codec='pcm_s16le')
+            return wav_file.name
+    except Exception as e:
+        logger.error(f"Failed to extract audio from video: {e}")
+        return ""
+
+# --- Message Filtering ---
+def is_junk_message(text: Optional[str]) -> bool:
+    """Detect junk/bot promotion messages."""
+    if not text:
+        return False
+    junk_keywords = ["/nayavpn", "promo", "cheap price", "@", "join fast", "discount"]
+    return any(junk in text.lower() for junk in junk_keywords)
+
+def is_homework_text(text: str) -> bool:
+    """Keyword-based heuristic to determine if message is homework-related."""
+    keywords = ["homework", "classwork", "assignment", "exercise", "page", "question", "write", "draw"]
+    return any(word in text.lower() for word in keywords)
+
+# --- Forwarding ---
+async def forward_message_to_parent_group(
     context: ContextTypes.DEFAULT_TYPE,
     message: Message,
-    routes_map: Dict[int, int]
-) -> bool:
-    """
-    Forward messages to parent group with:
-    - Text/photo support
-    - OCR for images
-    - Audio transcription
-    - Error handling
-    """
+    target_chat_id: int,
+) -> None:
+    """Forward or copy supported message types from student to parent group."""
     try:
-        target_chat = routes_map.get(message.chat_id)
-        if not target_chat:
-            return False
-
-        # Notify typing action
-        await context.bot.send_chat_action(
-            chat_id=target_chat,
-            action=ChatAction.TYPING
-        )
-
-        # Handle different message types
         if message.text:
-            await context.bot.send_message(
-                chat_id=target_chat,
-                text=f"📝 Homework Alert!\n\n{message.text}"
-            )
-            return True
-
+            await context.bot.send_message(chat_id=target_chat_id, text=message.text)
         elif message.photo:
-            # Download and process image
-            with tempfile.NamedTemporaryFile(suffix=".jpg") as tmp:
-                photo = await message.photo[-1].get_file()
-                await photo.download_to_drive(tmp.name)
-                ocr_text = await extract_text_from_image(tmp.name)
-
-            if ocr_text:
-                await context.bot.send_message(
-                    chat_id=target_chat,
-                    text=f"📸 Image Text:\n\n{ocr_text}"
-                )
-            await context.bot.send_photo(
-                chat_id=target_chat,
-                photo=message.photo[-1].file_id,
-                caption=message.caption
-            )
-            return True
-
-        elif message.voice or message.audio:
-            # Download and transcribe audio
-            with tempfile.NamedTemporaryFile(suffix=".ogg") as tmp:
-                audio = await (message.voice or message.audio).get_file()
-                await audio.download_to_drive(tmp.name)
-                transcript = await transcribe_audio(tmp.name)
-
-            if transcript:
-                await context.bot.send_message(
-                    chat_id=target_chat,
-                    text=f"🎙️ Audio Transcript:\n\n{transcript}"
-                )
-            await context.bot.send_voice(
-                chat_id=target_chat,
-                voice=message.voice.file_id if message.voice else None,
-                audio=message.audio.file_id if message.audio else None
-            )
-            return True
-
-        return False
-
+            file_id = message.photo[-1].file_id
+            caption = message.caption or ""
+            await context.bot.send_photo(chat_id=target_chat_id, photo=file_id, caption=caption)
+        elif message.document:
+            await context.bot.send_document(chat_id=target_chat_id, document=message.document.file_id, caption=message.caption or "")
+        elif message.audio:
+            await context.bot.send_audio(chat_id=target_chat_id, audio=message.audio.file_id, caption=message.caption or "")
+        elif message.voice:
+            await context.bot.send_voice(chat_id=target_chat_id, voice=message.voice.file_id, caption=message.caption or "")
+        elif message.video:
+            await context.bot.send_video(chat_id=target_chat_id, video=message.video.file_id, caption=message.caption or "")
+        else:
+            await context.bot.send_message(chat_id=target_chat_id, text="[Unsupported message type]")
     except Exception as e:
-        logger.error(f"Forwarding failed: {e}")
-        return False
-
-# --- Route Management --- #
-def add_route_to_env(student_id: str, parent_id: str) -> str:
-    """Add a new route to ROUTES_MAP in the .env file (manual for now)."""
-    try:
-        routes_map = os.getenv("ROUTES_MAP", "")
-        route_dict = dict(pair.split(":") for pair in routes_map.split(",") if pair)
-
-        if student_id in route_dict:
-            return f"❌ Route already exists for student group {student_id}."
-
-        route_dict[student_id] = parent_id
-        updated_routes = ",".join(f"{k}:{v}" for k, v in route_dict.items())
-
-        # Simulate saving to .env (this should ideally be manual in production)
-        with open(".env", "r") as file:
-            lines = file.readlines()
-
-        with open(".env", "w") as file:
-            for line in lines:
-                if line.startswith("ROUTES_MAP="):
-                    file.write(f"ROUTES_MAP={updated_routes}\n")
-                else:
-                    file.write(line)
-
-        return f"✅ Added route: {student_id} ➡️ {parent_id}"
-
-    except Exception as e:
-        return f"⚠️ Failed to add route: {e}"
-
-def delete_route_from_env(student_id: str) -> str:
-    """Delete a route from ROUTES_MAP in the .env file."""
-    try:
-        routes_map = os.getenv("ROUTES_MAP", "")
-        route_dict = dict(pair.split(":") for pair in routes_map.split(",") if pair)
-
-        if student_id not in route_dict:
-            return f"❌ No route found for student group {student_id}."
-
-        del route_dict[student_id]
-        updated_routes = ",".join(f"{k}:{v}" for k, v in route_dict.items())
-
-        # Simulate saving to .env (ideally should be manual in production)
-        with open(".env", "r") as file:
-            lines = file.readlines()
-
-        with open(".env", "w") as file:
-            for line in lines:
-                if line.startswith("ROUTES_MAP="):
-                    file.write(f"ROUTES_MAP={updated_routes}\n")
-                else:
-                    file.write(line)
-
-        return f"🗑️ Deleted route for student group {student_id}."
-
-    except Exception as e:
-        return f"⚠️ Failed to delete route: {e}"
-
-def parse_routes_map(raw_routes: str) -> Dict[int, int]:
-    """Parse ROUTES_MAP from .env string"""
-    routes = {}
-    if not raw_routes:
-        return routes
-    
-    for route in raw_routes.split(","):
-        try:
-            src, dst = map(int, route.strip().split(":"))
-            routes[src] = dst
-        except (ValueError, AttributeError):
-            continue
-    return routes
-
-def sync_routes_to_env(routes: Dict[int, int], env_path=".env") -> None:
-    """Update .env file with current routes"""
-    route_str = ",".join(f"{k}:{v}" for k, v in routes.items())
-    set_key(env_path, "ROUTES_MAP", route_str)
-
-# --- Activity Tracking --- #
-def list_sender_activity(bot_data):
-    """List the sender activity based on the recorded sender data."""
-    sender_activity = bot_data.get("SENDER_ACTIVITY", {})
-    
-    # Sort the senders based on timestamp of their last message (descending)
-    sorted_senders = sorted(sender_activity.items(), key=lambda item: item[1]['timestamp'], reverse=True)
-    
-    # Format the activity into a readable string
-    activity_list = []
-    for sender_id, activity in sorted_senders:
-        name = activity.get("name", "Unknown Sender")
-        last_message = activity.get("last_message", "No messages")
-        timestamp = activity.get("timestamp", "No timestamp")
-        activity_list.append(f"Sender ID: {sender_id}, Name: {name}, Last Message: {last_message}, Timestamp: {timestamp}")
-    
-    return "\n".join(activity_list) if activity_list else "No sender activity recorded."
-
-def clear_sender_data(context: ContextTypes.DEFAULT_TYPE) -> str:
-    """Clear the sender activity log."""
-    context.application.bot_data["SENDER_ACTIVITY"] = {}
-    return "Sender activity data has been cleared."
-
-def track_sender_activity(context: ContextTypes.DEFAULT_TYPE, update: Update) -> None:
-    """Log sender activity in bot_data"""
-    user = update.effective_user
-    context.bot_data.setdefault("SENDER_ACTIVITY", {})[str(user.id)] = {
-        "name": user.full_name,
-        "last_message": update.message.text or "[media]",
-        "timestamp": datetime.now().isoformat()
-    }
-
-def get_weekly_summary(bot_data):
-    """Get the weekly homework summary for the past 7 days."""
-    now = datetime.now()
-    start_of_week = now - timedelta(days=7)
-
-    weekly_logs = [
-        log for log in bot_data.get("FORWARDED_LOGS", [])
-        if "timestamp" in log and datetime.fromisoformat(log["timestamp"]) >= start_of_week
-    ]
-
-    if not weekly_logs:
-        return "📭 No homework messages forwarded in the past 7 days."
-
-    summary_lines = ["📘 *Weekly Homework Summary* 📘\n"]
-    for log in weekly_logs:
-        ts = datetime.fromisoformat(log["timestamp"]).strftime("%Y-%m-%d %H:%M")
-        msg = log.get("text", "[no text]")
-        summary_lines.append(f"- {ts}: {escape_markdown(msg, version=2)}")
-
-    return "\n".join(summary_lines)
-
-
-# Function to clear homework logs
-def clear_homework_log(bot_data):
-    """Clear all homework logs from the past week."""
-    bot_data["FORWARDED_LOGS"] = []
-
-def get_activity_summary(context: ContextTypes.DEFAULT_TYPE) -> str:
-    """Generate formatted activity log"""
-    activities = context.bot_data.get("SENDER_ACTIVITY", {})
-    if not activities:
-        return "No activities logged yet."
-
-    activity_log = "\n".join(
-        [f"{key}: {activity}" for key, activity in activities.items()]
-    )
-
-    return f"Activity Summary:\n{activity_log}"
+        logger.error(f"Failed to forward message: {e}")
