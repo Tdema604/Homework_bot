@@ -1,21 +1,7 @@
 services:
   - type: web
-    name: homework-forwarder-bot
+    name: telegram-bot
     env: docker
-    region: singapore
-    plan: free
-    autoDeploy: true
-    envVars:
-      - key: BOT_TOKEN
-        sync: false
-      - key: ADMIN_CHAT_IDS
-        sync: false
-      - key: ROUTES_MAP
-        sync: false
-      - key: WEBHOOK_URL
-        sync: false
-      - key: TESSDATA_PREFIX
-        value: /app/tessdata
-    dockerfilePath: Dockerfile
-    buildCommand: ""
-    startCommand: "python main.py"
+    buildCommand: |
+      pip install -r requirements.txt
+    startCommand: python3 main.py
