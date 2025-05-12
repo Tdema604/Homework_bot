@@ -1,23 +1,24 @@
-# Use a pre-built image with ffmpeg already included
-FROM jrottenberg/ffmpeg:4.3-ubuntu
+# Use the official Python image as the base
+FROM python:3.9-slim
 
-# Install Python and pip
-RUN apt-get update && apt-get install -y python3 python3-pip
-
-# Set environment variables
-ENV PYTHONUNBUFFERED 1
+# Install dependencies, including ffmpeg
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
 WORKDIR /app
 
-# Copy the requirements.txt first
-COPY requirements.txt /app/
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the code into the container
-COPY . /app/
+# Copy all files from the local directory to the container
+COPY . .
 
-# Set the command to run the bot
+# Expose the port that your app will run on
+EXPOSE 5000
+
+# Command to run your app
 CMD ["python3", "main.py"]
