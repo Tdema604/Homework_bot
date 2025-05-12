@@ -32,19 +32,23 @@ from audio_utils import extract_text_from_audio, extract_text_from_video
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message:
         greeting = get_dynamic_greeting()
+        logger.info(f"Start command received from {update.effective_user.id}. Greeting user.")
         await update.message.reply_text(f"{greeting} I'm your Homework Bot! 📚")
 
 async def notify_admins(context: ContextTypes.DEFAULT_TYPE, message: str):
     """Send notifications to all admins"""
+    logger.info(f"Notifying admins: {message}")
     for admin_id in context.bot_data.get("ADMIN_CHAT_IDS", []):
         try:
             await context.bot.send_message(admin_id, message)
+            logger.info(f"Admin {admin_id} notified.")
         except Exception as e:
             logging.error(f"Failed to notify admin {admin_id}: {e}")
 
 # ======================== Command Handlers ========================
 # /start command
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"/start command from {update.effective_user.id}")
     greeting = get_dynamic_greeting()
     await update.message.reply_text(
         f"<b>{greeting}, {update.effective_user.first_name}!</b>\n"
@@ -54,6 +58,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # /id command
 async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"/id command from {update.effective_user.id}")
     await update.message.reply_text(
         f"<b>Your chat ID:</b> <code>{update.effective_chat.id}</code>",
         parse_mode="HTML"
@@ -79,6 +84,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /help command
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    logger.info(f"/help command from {user_id}")
 
     general_help = """
 <b>🤖 Homework Forwarder Bot Help</b>
@@ -111,35 +117,6 @@ Need help? Ping the admin. You’re doing great! 💪
     help_message = general_help + (admin_addon if user_id in ADMIN_CHAT_IDS else "")
     await update.message.reply_text(help_message.strip(), parse_mode="HTML")
 
-async def add_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update):
-        return await update.message.reply_text("❌ Admin only!")
-    
-    try:
-        src, dst = map(int, context.args[:2])
-        context.bot_data.setdefault("ROUTES_MAP", {})[src] = dst
-        add_route_to_env(src, dst)
-        await update.message.reply_text(f"✅ Route added: {src} → {dst}")
-    except (ValueError, IndexError):
-        await update.message.reply_text("⚠️ Usage: /add_route <from_id> <to_id>")
-
-async def delete_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update):
-        return await update.message.reply_text("❌ Admin only!")
-    
-    try:
-        src = int(context.args[0])
-        if src in context.bot_data.get("ROUTES_MAP", {}):
-            del context.bot_data["ROUTES_MAP"][src]
-            delete_route_from_env(src)
-            await update.message.reply_text(f"🗑️ Deleted route: {src}")
-        else:
-            await update.message.reply_text("⚠️ Route not found")
-    except (ValueError, IndexError):
-        await update.message.reply_text("⚠️ Usage: /delete_route <from_id>")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error deleting route: {e}")
-
 async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
         return
@@ -147,6 +124,7 @@ async def reload_config(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot_data["ROUTES_MAP"] = parse_routes_map(os.getenv("ROUTES_MAP", ""))
         await update.message.reply_text("✅ Configuration reloaded.")
     except Exception as e:
+        logger.error(f"Error deleting route: {e}")
         await update.message.reply_text(f"❌ Error: {e}")
 
 async def get_weekly_summary_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -183,32 +161,39 @@ async def clear_senders_command(update: Update, context: ContextTypes.DEFAULT_TY
 # ========================= ROUTES COMMAND =========================
 async def add_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
+        logger.warning(f"Non-admin {update.effective_user.id} tried to access /add_route")
         return await update.message.reply_text("❌ Admin only!")
-
+    
     try:
         src, dst = map(int, context.args[:2])
         context.bot_data.setdefault("ROUTES_MAP", {})[src] = dst
         add_route_to_env(src, dst)
-        await update.message.reply_text(f"✅ Route added:\n{src} → {dst}")
+        logger.info(f"Route added: {src} → {dst}")
+        await update.message.reply_text(f"✅ Route added: {src} → {dst}")
     except (ValueError, IndexError):
+        logger.error(f"Error parsing route arguments: {context.args}")
         await update.message.reply_text("⚠️ Usage: /add_route <from_id> <to_id>")
-
 
 async def delete_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update):
+        logger.warning(f"Non-admin {update.effective_user.id} tried to access /delete_route")
         return await update.message.reply_text("❌ Admin only!")
-
+    
     try:
         src = int(context.args[0])
-        route_map = context.bot_data.get("ROUTES_MAP", {})
-        if src in route_map:
-            del route_map[src]
-            remove_route_from_env(src)
-            await update.message.reply_text(f"✅ Route deleted for: {src}")
+        if src in context.bot_data.get("ROUTES_MAP", {}):
+            del context.bot_data["ROUTES_MAP"][src]
+            delete_route_from_env(src)
+            logger.info(f"Route deleted: {src}")
+            await update.message.reply_text(f"🗑️ Deleted route: {src}")
         else:
-            await update.message.reply_text("⚠️ No such route found.")
+            logger.warning(f"Route not found: {src}")
+            await update.message.reply_text("⚠️ Route not found")
     except (ValueError, IndexError):
+        logger.error(f"Error parsing delete route arguments: {context.args}")
         await update.message.reply_text("⚠️ Usage: /delete_route <from_id>")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error deleting route: {e}")
 
 
 async def list_routes_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
