@@ -7,15 +7,6 @@ ENV PYTHONUNBUFFERED 1
 # Set the working directory in the container
 WORKDIR /app
 
-# Install necessary dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    python-dev \
-    python3-dev \
-    libpq-dev \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
 # Copy the requirements.txt first (so Docker caches this layer)
 COPY requirements.txt /app/
 
