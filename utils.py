@@ -3,7 +3,6 @@ import tempfile
 import logging
 import platform  # For OS detection
 import subprocess
-import logging
 from datetime import datetime, timedelta
 from typing import Dict, Optional
 import speech_recognition as sr
@@ -11,37 +10,32 @@ import pytesseract
 from pytesseract import image_to_string
 from PIL import Image
 from dotenv import set_key
-from datetime import datetime, timedelta
-from typing import Dict, Optional
 from telegram import Message, Update
 from telegram.ext import ContextTypes
 from telegram.constants import ChatAction
 from telegram.helpers import escape_markdown
-import pytesseract
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-# --- Setup --- #
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
-
-# --- Admin Verification --- #
-def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Check if user is admin"""
-    return str(update.effective_user.id) in map(str, context.bot_data.get("ADMIN_CHAT_IDS", []))
 
 # --- Tesseract Configuration --- #
-if platform.system() == "Windows":
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-    TESSDATA_PREFIX = r'C:\Program Files\Tesseract-OCR\tessdata'
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-# --- Setup --- #
+# --- Setup Logging --- #
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+
+def get_dynamic_greeting():
+    """Returns a greeting based on current hour"""
+    current_hour = datetime.now().hour
+    if 5 <= current_hour < 12:
+        return "Good morning! 🌅"
+    elif 12 <= current_hour < 17:
+        return "Good afternoon! ☀️"
+    elif 17 <= current_hour < 21:
+        return "Good evening! 🌆"
+    return "Good night! 🌙"
 
 # --- Admin Verification --- #
 def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -76,23 +70,20 @@ def is_homework_text(text: str) -> bool:
     return any(kw in text.lower() for kw in keywords)
 
 # --- Media Processing --- #
-async def extract_text_from_image(image_path: str) -> str:
-    """Extract text from images using OCR"""
-    try:
-        img = Image.open(image_path)
-        text = image_to_string(img)
+
 def setup_dzongkha_ocr():
-    """Ensure Dzongkha language support exists (Linux only)"""
-    if platform.system() != "Windows":
+    """Ensure Dzongkha language support is available"""
+    try:
         dzo_path = f"{TESSDATA_PREFIX}/dzo.traineddata"
         if not os.path.exists(dzo_path):
             os.makedirs(TESSDATA_PREFIX, exist_ok=True)
-            os.system(f"curl -L 'https://github.com/tesseract-ocr/tessdata/raw/main/dzo.traineddata' -o '{dzo_path}'")
+            os.system(f"wget https://github.com/tesseract-ocr/tessdata/raw/main/dzo.traineddata -O {dzo_path}")
+    except Exception as e:
+        logging.error(f"Failed to set up Dzongkha OCR: {e}")
 
 async def extract_text_from_image(image_path: str) -> str:
-    """Extract text from images with Dzongkha support"""
+    """Extract text from images using OCR"""
     try:
-        setup_dzongkha_ocr()
         img = Image.open(image_path)
         lang = 'dzo+eng' if platform.system() != "Windows" else 'eng'
         text = image_to_string(img, lang=lang)
@@ -249,7 +240,6 @@ def delete_route_from_env(student_id: str) -> str:
     except Exception as e:
         return f"⚠️ Failed to delete route: {e}"
 
-
 def parse_routes_map(raw_routes: str) -> Dict[int, int]:
     """Parse ROUTES_MAP from .env string"""
     routes = {}
@@ -292,7 +282,6 @@ def clear_sender_data(context: ContextTypes.DEFAULT_TYPE) -> str:
     context.application.bot_data["SENDER_ACTIVITY"] = {}
     return "Sender activity data has been cleared."
 
-
 def track_sender_activity(context: ContextTypes.DEFAULT_TYPE, update: Update) -> None:
     """Log sender activity in bot_data"""
     user = update.effective_user
@@ -304,20 +293,25 @@ def track_sender_activity(context: ContextTypes.DEFAULT_TYPE, update: Update) ->
 
 def get_weekly_summary(bot_data):
     """Get the weekly homework summary for the past 7 days."""
-    # Get the current time and the time for 7 days ago
     now = datetime.now()
-    start_of_week = now - timedelta(days=7)  # 7 days ago
-    
-    # Filter logs from the past 7 days
-    weekly_summary = []
-    for log in bot_data.get("FORWARDED_LOGS", []):
-        # Ensure that the log contains a timestamp and that it's within the past 7 days
-        if "timestamp" in log:
-            timestamp = datetime.fromtimestamp(log["timestamp"])
-            if timestamp >= start_of_week:
-                weekly_summary.append(log)
-    
-    return weekly_summary
+    start_of_week = now - timedelta(days=7)
+
+    weekly_logs = [
+        log for log in bot_data.get("FORWARDED_LOGS", [])
+        if "timestamp" in log and datetime.fromisoformat(log["timestamp"]) >= start_of_week
+    ]
+
+    if not weekly_logs:
+        return "📭 No homework messages forwarded in the past 7 days."
+
+    summary_lines = ["📘 *Weekly Homework Summary* 📘\n"]
+    for log in weekly_logs:
+        ts = datetime.fromisoformat(log["timestamp"]).strftime("%Y-%m-%d %H:%M")
+        msg = log.get("text", "[no text]")
+        summary_lines.append(f"- {ts}: {escape_markdown(msg, version=2)}")
+
+    return "\n".join(summary_lines)
+
 
 # Function to clear homework logs
 def clear_homework_log(bot_data):
@@ -328,9 +322,10 @@ def get_activity_summary(context: ContextTypes.DEFAULT_TYPE) -> str:
     """Generate formatted activity log"""
     activities = context.bot_data.get("SENDER_ACTIVITY", {})
     if not activities:
-        return "No activity yet"
-    
-    return "\n".join(
-        f"{data['name']}: {data['last_message'][:50]}..."
-        for _, data in activities.items()
-)
+        return "No activities logged yet."
+
+    activity_log = "\n".join(
+        [f"{key}: {activity}" for key, activity in activities.items()]
+    )
+
+    return f"Activity Summary:\n{activity_log}"
