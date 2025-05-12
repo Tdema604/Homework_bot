@@ -1,5 +1,5 @@
-# Use the official Python base image
-FROM python:3.9-slim
+# Use a prebuilt Python image with common dependencies (like ffmpeg, etc.)
+FROM python:3.9-slim-buster
 
 # Set environment variables for non-interactive installs
 ENV PYTHONUNBUFFERED 1
