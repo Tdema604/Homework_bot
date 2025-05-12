@@ -1,20 +1,16 @@
 services:
   - type: web
-    name: homework-forwarder
+    name: telegram-homework-bot
     env: python
+    plan: free
     buildCommand: |
-      mkdir -p /usr/share/tesseract-ocr/4.00/tessdata  # <-- Creates directory
-      curl -L "https://github.com/tesseract-ocr/tessdata/raw/main/dzo.traineddata" -o "/usr/share/tesseract-ocr/4.00/tessdata/dzo.traineddata"
-      apt-get update
-      apt-get install -y tesseract-ocr tesseract-ocr-dzo ffmpeg
+      apt-get update && apt-get install -y ffmpeg
       pip install -r requirements.txt
     startCommand: python main.py
     envVars:
       - key: BOT_TOKEN
         sync: false
-      - key: ADMIN_CHAT_IDS
-        sync: false
       - key: ROUTES_MAP
         sync: false
-      - key: WEBHOOK_URL
+      - key: ADMIN_CHAT_IDS
         sync: false
