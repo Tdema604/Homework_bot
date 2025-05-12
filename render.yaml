@@ -1,16 +1,21 @@
 services:
   - type: web
-    name: telegram-homework-bot
-    env: python
+    name: homework-forwarder-bot
+    env: docker
+    region: singapore
     plan: free
-    buildCommand: |
-      apt-get update && apt-get install -y ffmpeg
-      pip install -r requirements.txt
-    startCommand: python main.py
+    autoDeploy: true
     envVars:
       - key: BOT_TOKEN
         sync: false
-      - key: ROUTES_MAP
-        sync: false
       - key: ADMIN_CHAT_IDS
         sync: false
+      - key: ROUTES_MAP
+        sync: false
+      - key: WEBHOOK_URL
+        sync: false
+      - key: TESSDATA_PREFIX
+        value: /app/tessdata
+    dockerfilePath: Dockerfile
+    buildCommand: ""
+    startCommand: "python main.py"
